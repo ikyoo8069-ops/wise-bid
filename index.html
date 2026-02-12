@@ -1,1001 +1,1199 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>슬기로운 입찰생활 - N2B 기반 조달 입찰 도우미</title>
-    <link href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #1a365d;
-            --primary-light: #2c5282;
-            --accent: #ed8936;
-            --accent-hover: #dd6b20;
-            --bg-main: #f7fafc;
-            --bg-card: #ffffff;
-            --text-main: #1a202c;
-            --text-secondary: #4a5568;
-            --text-muted: #718096;
-            --border: #e2e8f0;
-            --not-color: #e53e3e;
-            --but-color: #3182ce;
-            --because-color: #38a169;
-            --shadow: 0 4px 20px rgba(0,0,0,0.08);
-            --shadow-hover: 0 8px 30px rgba(0,0,0,0.12);
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-main);
-            color: var(--text-main);
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-
-        header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            padding: 2rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -20%;
-            width: 60%;
-            height: 200%;
-            background: rgba(255,255,255,0.05);
-            transform: rotate(15deg);
-        }
-
-        header h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 0.5rem; position: relative; }
-        header p { font-size: 1.1rem; opacity: 0.9; position: relative; }
-
-        .n2b-badge { display: inline-flex; gap: 0.5rem; margin-top: 1rem; position: relative; }
-        .n2b-badge span { padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
-        .badge-not { background: var(--not-color); }
-        .badge-but { background: var(--but-color); }
-        .badge-because { background: var(--because-color); }
-
-        .usage-bar {
-            background: rgba(255,255,255,0.15);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            margin-top: 1rem;
-            font-size: 0.85rem;
-            display: inline-block;
-        }
-
-        nav {
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border);
-            padding: 0.5rem 1rem;
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-
-        nav button {
-            padding: 0.7rem 1.2rem;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            font-weight: 500;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            font-family: inherit;
-        }
-
-        nav button:hover { background: var(--bg-main); color: var(--primary); }
-        nav button.active { background: var(--primary); color: white; }
-
-        main { max-width: 1000px; margin: 0 auto; padding: 2rem; }
-
-        .section { display: none; animation: fadeIn 0.4s ease; }
-        .section.active { display: block; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
-        }
-
-        .card h2 {
-            font-size: 1.4rem;
-            color: var(--primary);
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .card > p { color: var(--text-muted); margin-bottom: 1.5rem; }
-
-        .form-group { margin-bottom: 1.5rem; }
-        .form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-main); }
-
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            padding: 0.9rem 1rem;
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            font-size: 1rem;
-            font-family: inherit;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus { outline: none; border-color: var(--primary); }
-
-        .form-group textarea { min-height: 120px; resize: vertical; }
-
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-
-        .n2b-group { background: var(--bg-main); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
-        .n2b-group h3 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-main); }
-
-        .n2b-input { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: flex-start; }
-        .n2b-label { min-width: 90px; padding: 0.7rem 1rem; border-radius: 8px; font-weight: 700; color: white; text-align: center; font-size: 0.9rem; }
-        .n2b-label.not { background: var(--not-color); }
-        .n2b-label.but { background: var(--but-color); }
-        .n2b-label.because { background: var(--because-color); }
-        .n2b-input textarea { flex: 1; min-height: 80px; }
-
-        .btn {
-            padding: 1rem 2rem;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-family: inherit;
-        }
-
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(237, 137, 54, 0.4); }
-        .btn-primary:disabled { background: #ccc; cursor: not-allowed; transform: none; }
-
-        .btn-secondary { background: var(--bg-main); color: var(--text-main); border: 2px solid var(--border); }
-        .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
-
-        .btn-group { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
-
-        .btn-large { padding: 1.2rem 2.5rem; font-size: 1.1rem; }
-        a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; }
-
-        .result-box {
-            background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
-            border: 2px solid var(--because-color);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-top: 1.5rem;
-            display: none;
-        }
-
-        .result-box.show { display: block; animation: slideUp 0.4s ease; }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .result-box h3 { color: var(--because-color); margin-bottom: 1rem; }
-
-        .price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-        .price-item { background: var(--bg-main); padding: 1.2rem; border-radius: 10px; text-align: center; }
-        .price-item label { display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; }
-        .price-item input { text-align: center; font-size: 1.1rem; font-weight: 600; }
-
-        .price-result { background: var(--primary); color: white; padding: 1.5rem; border-radius: 12px; text-align: center; }
-        .price-result .label { font-size: 0.95rem; opacity: 0.9; margin-bottom: 0.3rem; }
-        .price-result .value { font-size: 1.8rem; font-weight: 700; }
-
-        .bubble-info { background: #fff5f5; border-left: 4px solid var(--not-color); padding: 1rem 1.2rem; margin: 1rem 0; border-radius: 0 8px 8px 0; }
-        .bubble-info.positive { background: #f0fff4; border-left-color: var(--because-color); }
-
-        .decision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
-        .decision-item { padding: 1rem; border-radius: 10px; border: 2px solid var(--border); }
-        .decision-item.pro { background: #f0fff4; border-color: var(--because-color); }
-        .decision-item.con { background: #fff5f5; border-color: var(--not-color); }
-        .decision-item h4 { font-size: 1rem; margin-bottom: 0.5rem; }
-        .decision-item.pro h4 { color: var(--because-color); }
-        .decision-item.con h4 { color: var(--not-color); }
-
-        .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
-        .home-card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-        }
-        .home-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); border-color: var(--primary); }
-        .home-card .icon { font-size: 2.5rem; margin-bottom: 0.8rem; }
-        .home-card h3 { font-size: 1.1rem; color: var(--primary); margin-bottom: 0.3rem; }
-        .home-card p { color: var(--text-muted); font-size: 0.85rem; }
-
-        .info-box { background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%); border: 1px solid #90cdf4; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
-        .info-box h4 { color: var(--primary-light); margin-bottom: 0.5rem; }
-        .info-box p { color: var(--text-secondary); font-size: 0.95rem; }
-
-        .feature-list { display: flex; flex-direction: column; gap: 0.8rem; margin: 1.5rem 0; }
-        .feature-item { display: flex; align-items: center; gap: 0.8rem; padding: 0.8rem 1rem; background: var(--bg-main); border-radius: 8px; }
-
-        .loading { display: none; text-align: center; padding: 2rem; }
-        .loading.show { display: block; }
-        .spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* AI Result */
-        .ai-n2b-box { background: var(--bg-main); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
-        .ai-n2b-item { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: flex-start; }
-        .ai-n2b-item:last-child { margin-bottom: 0; }
-        .ai-n2b-label { min-width: 90px; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 700; color: white; text-align: center; font-size: 0.85rem; }
-        .ai-n2b-content { flex: 1; padding: 0.5rem 0; line-height: 1.6; }
-
-        .ai-analysis-box { background: #f0fff4; border: 1px solid var(--because-color); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
-        .ai-analysis-box h4 { color: var(--because-color); margin-bottom: 1rem; }
-
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
-        .stat-item { text-align: center; padding: 1rem; background: white; border-radius: 8px; }
-        .stat-item .value { font-size: 1.4rem; font-weight: 700; color: var(--primary); }
-        .stat-item .label { font-size: 0.8rem; color: var(--text-muted); }
-
-        .decision-badge { display: inline-block; padding: 0.5rem 1.5rem; border-radius: 20px; font-weight: 700; font-size: 1.2rem; margin-bottom: 1rem; }
-        .decision-badge.participate { background: var(--because-color); color: white; }
-        .decision-badge.not-participate { background: var(--not-color); color: white; }
-        .decision-badge.conditional { background: var(--accent); color: white; }
-
-        /* Bid Card */
-        .bid-card {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.3s ease;
-        }
-        .bid-card:hover { box-shadow: var(--shadow); border-color: var(--primary); }
-        .bid-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
-        .bid-card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); flex: 1; }
-        .bid-card-score { background: var(--because-color); color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 700; font-size: 0.9rem; }
-        .bid-card-info { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.8rem; }
-        .bid-card-info span { display: flex; align-items: center; gap: 0.3rem; }
-        .bid-card-reason { background: var(--bg-main); padding: 0.8rem 1rem; border-radius: 8px; font-size: 0.9rem; }
-        .bid-card-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
-        .bid-card-actions button { padding: 0.5rem 1rem; font-size: 0.85rem; }
-
-        .keyword-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
-        .keyword-tag { background: var(--primary); color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; }
-
-        .sample-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; padding: 1rem; background: var(--bg-main); border-radius: 10px; }
-        .sample-btn { padding: 0.5rem 1rem; border: 1px solid var(--border); background: white; border-radius: 20px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-        .sample-btn:hover { border-color: var(--primary); color: var(--primary); background: #f0f7ff; }
-
-        @media (max-width: 768px) {
-            header h1 { font-size: 1.8rem; }
-            main { padding: 1rem; }
-            .card { padding: 1.5rem; }
-            .n2b-input, .ai-n2b-item { flex-direction: column; }
-            .n2b-label, .ai-n2b-label { min-width: 100%; }
-            .decision-grid, .form-row { grid-template-columns: 1fr; }
-            nav button { padding: 0.5rem 0.8rem; font-size: 0.85rem; }
-            .home-grid { grid-template-columns: 1fr 1fr; }
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>🏛️ 슬기로운 입찰생활</h1>
-        <p>N2B 기반 조달 입찰 도우미</p>
-        <div class="n2b-badge">
-            <span class="badge-not">Not</span>
-            <span class="badge-but">But</span>
-            <span class="badge-because">Because</span>
-        </div>
-        <div class="usage-bar">
-            오늘 사용량: <span id="usageCount">-</span> / <span id="usageLimit">10</span>회
-        </div>
-    </header>
-
-    <nav>
-        <button class="active" onclick="showSection('home', this)">🏠 홈</button>
-        <button onclick="showSection('match', this)">🔍 입찰매칭</button>
-        <button onclick="showSection('proposal', this)">📝 제안서</button>
-        <button onclick="showSection('price', this)">💰 가격분석</button>
-        <button onclick="showSection('decision', this)">🎯 의사결정</button>
-    </nav>
-
-    <main>
-        <!-- Home Section -->
-        <section id="home" class="section active">
-            <div class="info-box">
-                <h4>💡 슬기로운 입찰생활이란?</h4>
-                <p><strong>N2B(Not-But-Because)</strong> 프레임워크로 입찰의 본질을 파악합니다. 우리 회사에 맞는 공고 매칭부터 제안서 작성, 적정가격 산정, 참여 의사결정까지 — 거품 없는 논리적 입찰을 도와드립니다.</p>
-            </div>
-
-            <div class="home-grid">
-                <div class="home-card" onclick="showSection('match')">
-                    <div class="icon">🔍</div>
-                    <h3>입찰공고 매칭</h3>
-                    <p>우리 역량에 맞는 공고를<br>AI가 찾아드립니다</p>
-                </div>
-
-                <div class="home-card" onclick="showSection('proposal')">
-                    <div class="icon">📝</div>
-                    <h3>제안서 N2B</h3>
-                    <p>논리적 제안서 작성<br>wise-proposal 연결</p>
-                </div>
-
-                <div class="home-card" onclick="showSection('price')">
-                    <div class="icon">💰</div>
-                    <h3>가격 N2B</h3>
-                    <p>거품 분석 + 적정가격<br>AI가 제안</p>
-                </div>
-
-                <div class="home-card" onclick="showSection('decision')">
-                    <div class="icon">🎯</div>
-                    <h3>참여 의사결정</h3>
-                    <p>참여 vs 불참<br>N2B로 판단</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Match Section -->
-        <section id="match" class="section">
-            <div class="card">
-                <h2><span class="icon">🔍</span> 입찰공고 N2B 매칭</h2>
-                <p>우리 회사 역량과 관심분야를 입력하면, AI가 N2B 분석 후 적합한 입찰공고를 찾아드립니다.</p>
-
-                <div class="sample-buttons">
-                    <span style="font-size: 0.9rem; color: var(--text-muted);">샘플 선택:</span>
-                    <button class="sample-btn" onclick="loadSample(1)">🏗️ 건설/토목</button>
-                    <button class="sample-btn" onclick="loadSample(2)">💻 IT/소프트웨어</button>
-                    <button class="sample-btn" onclick="loadSample(3)">📦 물품/납품</button>
-                    <button class="sample-btn" onclick="loadSample(4)">📊 용역/컨설팅</button>
-                </div>
-
-                <div class="form-group">
-                    <label>우리 회사 역량 및 관심분야</label>
-                    <textarea id="companyInfo" placeholder="예: 도로포장 전문업체, 아스팔트/콘크리트 시공 20년 경력&#10;서울/경기 지역 위주, 5억 이하 소규모 공사 선호&#10;최근 3년간 도로유지보수 실적 50건 이상"></textarea>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>선호 입찰 유형</label>
-                        <select id="preferredType">
-                            <option value="전체">전체</option>
-                            <option value="물품">물품</option>
-                            <option value="공사">공사</option>
-                            <option value="용역">용역</option>
-                            <option value="외자">외자</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>선호 예산 규모</label>
-                        <input type="text" id="budgetRange" placeholder="예: 1억~5억">
-                    </div>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary" id="matchAnalyzeBtn" onclick="analyzeAndMatch()">🤖 N2B 분석 & 공고 매칭</button>
-                    <button class="btn btn-secondary" onclick="clearMatch()">초기화</button>
-                </div>
-
-                <div class="loading" id="matchLoading">
-                    <div class="spinner"></div>
-                    <p>AI가 분석하고 적합한 공고를 찾고 있습니다...</p>
-                </div>
-
-                <div id="matchResult" class="result-box">
-                    <h3>✅ N2B 분석 결과</h3>
-                    <div id="matchN2BContent"></div>
-                    
-                    <h3 style="margin-top: 2rem;">📋 추천 입찰공고</h3>
-                    <div id="matchBidsContent"></div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Proposal Section -->
-        <section id="proposal" class="section">
-            <div class="card">
-                <h2><span class="icon">📝</span> 제안서 N2B</h2>
-                <p>N2B 기반으로 논리적인 제안서를 작성하세요.</p>
-
-                <div class="info-box">
-                    <h4>💡 제안서 N2B 구조</h4>
-                    <p><strong>Not</strong>: 기존 방식의 한계 → <strong>But</strong>: 우리의 차별화된 해결책 → <strong>Because</strong>: 효과의 근거</p>
-                </div>
-
-                <div class="feature-list">
-                    <div class="feature-item">
-                        <span>✅</span>
-                        <span>평가항목별 N2B 논리 구조화</span>
-                    </div>
-                    <div class="feature-item">
-                        <span>✅</span>
-                        <span>AI 기반 제안서 분석 및 피드백</span>
-                    </div>
-                    <div class="feature-item">
-                        <span>✅</span>
-                        <span>PPT 제안서 자동 생성</span>
-                    </div>
-                </div>
-
-                <div class="btn-group" style="justify-content: center; margin-top: 2rem;">
-                    <a href="https://ikyoo8069-ops.github.io/wise-proposal/" target="_blank" class="btn btn-primary btn-large">
-                        🚀 슬기로운 제안서 작성 시작하기
-                    </a>
-                </div>
-            </div>
-        </section>
-
-        <!-- Price Section -->
-        <section id="price" class="section">
-            <div class="card">
-                <h2><span class="icon">💰</span> 가격 N2B 분석</h2>
-                <p>AI가 유사 입찰 낙찰률을 분석하여 적정 투찰가를 제안합니다.</p>
-
-                <div class="form-group">
-                    <label>입찰 공고명</label>
-                    <input type="text" id="priceTitle" placeholder="예: 2024년 도로 안전시설 개선사업">
-                </div>
-
-                <div class="form-group">
-                    <label>입찰 유형</label>
-                    <select id="bidType">
-                        <option value="물품">물품</option>
-                        <option value="공사">공사</option>
-                        <option value="용역">용역</option>
-                        <option value="외자">외자</option>
-                    </select>
-                </div>
-
-                <div class="price-grid">
-                    <div class="price-item">
-                        <label>예정가격 (원)</label>
-                        <input type="text" id="estimatedPrice" placeholder="100,000,000" oninput="formatNumber(this); calculatePrice()">
-                    </div>
-                    <div class="price-item">
-                        <label>우리 원가 (원)</label>
-                        <input type="text" id="ourCost" placeholder="80,000,000" oninput="formatNumber(this); calculatePrice()">
-                    </div>
-                    <div class="price-item">
-                        <label>최저가 기준 (%)</label>
-                        <input type="number" id="minRate" value="87.745" step="0.001" onchange="calculatePrice()">
-                    </div>
-                </div>
-
-                <div class="price-result">
-                    <div class="label">투찰 가능 범위</div>
-                    <div class="value" id="bidRange">-</div>
-                </div>
-
-                <div id="bubbleAnalysis" class="bubble-info" style="display:none;">
-                    <strong>📊 거품 분석:</strong> <span id="bubbleText"></span>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary" id="priceAnalyzeBtn" onclick="analyzePriceWithAI()">🤖 AI 분석하기</button>
-                    <button class="btn btn-secondary" onclick="clearPrice()">초기화</button>
-                </div>
-
-                <div class="loading" id="priceLoading">
-                    <div class="spinner"></div>
-                    <p>AI가 유사 입찰을 분석하고 있습니다...</p>
-                </div>
-
-                <div id="priceResult" class="result-box">
-                    <h3>✅ AI 가격 분석 결과</h3>
-                    <div id="priceResultContent"></div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Decision Section -->
-        <section id="decision" class="section">
-            <div class="card">
-                <h2><span class="icon">🎯</span> 입찰 참여 의사결정</h2>
-                <p>AI가 N2B 논리로 참여 여부를 분석합니다.</p>
-
-                <div class="form-group">
-                    <label>입찰 공고명</label>
-                    <input type="text" id="decisionTitle" placeholder="예: 2024년 도로 안전시설 개선사업">
-                </div>
-
-                <div class="price-grid">
-                    <div class="price-item">
-                        <label>예정가격 (원)</label>
-                        <input type="text" id="decisionEstimated" placeholder="100,000,000" oninput="formatNumber(this)">
-                    </div>
-                    <div class="price-item">
-                        <label>우리 원가 (원)</label>
-                        <input type="text" id="decisionCost" placeholder="80,000,000" oninput="formatNumber(this)">
-                    </div>
-                </div>
-
-                <div class="decision-grid">
-                    <div class="decision-item pro">
-                        <h4>✅ 참여해야 하는 이유</h4>
-                        <textarea id="decisionPro" placeholder="- 우리 핵심 역량과 일치&#10;- 수익성 확보 가능&#10;- 레퍼런스 구축 필요"></textarea>
-                    </div>
-                    <div class="decision-item con">
-                        <h4>❌ 참여하면 안되는 이유</h4>
-                        <textarea id="decisionCon" placeholder="- 인력 부족&#10;- 경쟁 과열&#10;- 수익성 불투명"></textarea>
-                    </div>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary" id="decisionAnalyzeBtn" onclick="analyzeDecisionWithAI()">🤖 AI 의사결정 분석</button>
-                    <button class="btn btn-secondary" onclick="clearDecision()">초기화</button>
-                </div>
-
-                <div class="loading" id="decisionLoading">
-                    <div class="spinner"></div>
-                    <p>AI가 의사결정을 분석하고 있습니다...</p>
-                </div>
-
-                <div id="decisionResult" class="result-box">
-                    <h3>✅ AI 의사결정 분석 결과</h3>
-                    <div id="decisionResultContent"></div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <script>
-        const API_BASE = 'https://n2b-backend-1.onrender.com';
-        let premiumKey = localStorage.getItem('bidPremiumKey') || '';
-        let currentN2B = {};
-        let currentKeywords = [];
-
-        async function fetchUsage() {
-            try {
-                const headers = {};
-                if (premiumKey) headers['x-premium-key'] = premiumKey;
-                const res = await fetch(`${API_BASE}/api/usage`, { headers });
-                const data = await res.json();
-                document.getElementById('usageCount').textContent = data.bid?.used || 0;
-                document.getElementById('usageLimit').textContent = data.bid?.limit || 10;
-            } catch (e) {
-                console.error('사용량 조회 실패:', e);
-            }
-        }
-
-        fetchUsage();
-
-        const samples = {
-            1: {
-                info: `도로포장 전문업체, 아스팔트/콘크리트 시공 20년 경력
-서울/경기 지역 위주, 5억 이하 소규모 공사 선호
-최근 3년간 도로유지보수 실적 50건 이상
-장비 보유: 아스팔트 피니셔, 롤러, 덤프트럭`,
-                type: '공사',
-                budget: '1억~5억'
-            },
-            2: {
-                info: `웹/앱 개발 전문 중소기업, 직원 15명
-공공기관 행정시스템 구축 경험 다수
-Java, Python, React 기술 보유
-정보보안 인증(ISMS) 취득, 클라우드 전환 사업 관심
-1억~3억 규모 용역 선호`,
-                type: '용역',
-                budget: '1억~3억'
-            },
-            3: {
-                info: `사무용품 및 전산장비 납품업체
-조달청 MAS 등록 업체, 나라장터 10년 거래
-컴퓨터, 프린터, 복합기 등 IT기기 전문
-전국 배송 가능, 5천만원~2억 규모 선호
-관공서/학교 납품 실적 다수`,
-                type: '물품',
-                budget: '5천만원~2억'
-            },
-            4: {
-                info: `교통 및 도로안전 컨설팅 전문
-교통영향평가, 안전진단 면허 보유
-대학교수 출신 박사급 인력 5명
-국토부/지자체 연구용역 실적 30건 이상
-3억~10억 규모 연구용역 선호`,
-                type: '용역',
-                budget: '3억~10억'
-            }
-        };
-
-        function loadSample(num) {
-            const sample = samples[num];
-            if (sample) {
-                document.getElementById('companyInfo').value = sample.info;
-                document.getElementById('preferredType').value = sample.type;
-                document.getElementById('budgetRange').value = sample.budget;
-            }
-        }
-
-        function showSection(sectionId, btn) {
-            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-            document.getElementById(sectionId).classList.add('active');
-            if (btn) btn.classList.add('active');
-            else document.querySelector(`nav button[onclick*="${sectionId}"]`)?.classList.add('active');
-        }
-
-        function formatNumber(input) {
-            let value = input.value.replace(/[^\d]/g, '');
-            if (value) value = parseInt(value).toLocaleString('ko-KR');
-            input.value = value;
-        }
-
-        function parseNumber(str) {
-            return parseInt(str.replace(/[^\d]/g, '')) || 0;
-        }
-
-        function calculatePrice() {
-            const estimated = parseNumber(document.getElementById('estimatedPrice').value);
-            const cost = parseNumber(document.getElementById('ourCost').value);
-            const minRate = parseFloat(document.getElementById('minRate').value) || 87.745;
-
-            if (estimated > 0) {
-                const minPrice = Math.round(estimated * minRate / 100);
-                document.getElementById('bidRange').textContent = `${minPrice.toLocaleString('ko-KR')}원 ~ ${estimated.toLocaleString('ko-KR')}원`;
-
-                if (cost > 0) {
-                    const bubble = estimated - cost;
-                    const bubbleRate = ((bubble / estimated) * 100).toFixed(1);
-                    document.getElementById('bubbleAnalysis').style.display = 'block';
-                    document.getElementById('bubbleAnalysis').className = bubble > 0 ? 'bubble-info' : 'bubble-info positive';
-                    document.getElementById('bubbleText').innerHTML = bubble > 0 
-                        ? `예정가격 대비 <strong>${bubbleRate}%</strong>의 거품 존재`
-                        : `원가가 예정가격보다 높습니다. 참여 신중히 검토하세요.`;
+# ============================================
+# 슬기로운 기업경영 - Backend v2.5
+# Bizinfo + K-Startup + Claude API 연동
+# + 제안서/PPT + 진흥원 + 일일사용제한
+# + 조달청 입찰/낙찰/가격 API (wise-bid)
+# + 입찰공고 N2B 매칭 기능
+# ============================================
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
+import httpx
+import xml.etree.ElementTree as ET
+import anthropic
+import os
+import json
+import asyncio
+import re
+from datetime import date, datetime
+
+app = FastAPI(title="N2B Backend v2.5", description="기업마당 + K-Startup + Claude + 제안서 + 진흥원 + 조달청입찰 + 입찰매칭")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ============================================
+# API 키 (환경변수에서 읽기)
+# ============================================
+BIZINFO_API_KEY = os.getenv("BIZINFO_API_KEY", "f41G7V")
+KSTARTUP_API_KEY = os.getenv("KSTARTUP_API_KEY", "47bd938c975a8989c5561a813fe66fcd68b76bfc4b4d54ca33345923b5b51897")
+PUBLIC_DATA_API_KEY = os.getenv("PUBLIC_DATA_API_KEY", "47bd938c975a8989c5561a813fe66fcd68b76bfc4b4d54ca33345923b5b51897")
+CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
+PREMIUM_KEY = os.getenv("PREMIUM_KEY", "wise2025")
+
+# ============================================
+# 일일 사용 제한 시스템
+# ============================================
+LIMITS = {
+    "biz": {"normal": 10, "premium": 200},
+    "proposal": {"normal": 10, "premium": 200},
+    "agency": {"normal": 100},
+    "bid": {"normal": 10, "premium": 200}
+}
+
+daily_usage: dict = {}
+
+
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def check_rate_limit(ip: str, app_type: str, is_premium: bool = False) -> dict:
+    today = str(date.today())
+    
+    if today not in daily_usage:
+        daily_usage.clear()
+        daily_usage[today] = {}
+    
+    if ip not in daily_usage[today]:
+        daily_usage[today][ip] = {"biz": 0, "proposal": 0, "agency": 0, "bid": 0}
+    
+    usage = daily_usage[today][ip]
+    current = usage.get(app_type, 0)
+    
+    if app_type in ("biz", "proposal", "bid"):
+        limit = LIMITS[app_type]["premium"] if is_premium else LIMITS[app_type]["normal"]
+    else:
+        limit = LIMITS["agency"]["normal"]
+    
+    remaining = limit - current
+    
+    if remaining <= 0:
+        tier = "프리미엄" if is_premium else "일반"
+        raise HTTPException(
+            status_code=429,
+            detail=f"일일 사용 한도({limit}회)를 초과했습니다. ({tier})"
+        )
+    
+    usage[app_type] = current + 1
+    return {"used": current + 1, "limit": limit, "remaining": remaining - 1}
+
+# ============================================
+# 요청 모델
+# ============================================
+class AnalyzeRequest(BaseModel):
+    worry: str
+    region: str = "전체"
+
+class MatchRequest(BaseModel):
+    n2b_not: str
+    n2b_but: str
+    n2b_because: str
+    keywords: list[str]
+    region: str = "전체"
+
+class ProposalRequest(BaseModel):
+    company_info: str
+    n2b_not: str
+    n2b_but: str
+    n2b_because: str
+    program_name: str
+    program_description: str
+    program_budget: str
+
+class PptRequest(BaseModel):
+    company_info: str
+    n2b_not: str
+    n2b_but: str
+    n2b_because: str
+    program_name: str
+    program_description: str
+    program_budget: str
+
+class AgencyAnalyzeRequest(BaseModel):
+    worry: str
+
+class AgencyDeepDiveRequest(BaseModel):
+    previous_but: str
+    messages: list = []
+
+# 조달청 입찰 관련 모델
+class BidSearchRequest(BaseModel):
+    keyword: str
+    bid_type: str = "물품"
+    count: int = 20
+
+class BidPriceAnalyzeRequest(BaseModel):
+    bid_name: str
+    estimated_price: int
+    our_cost: int
+    bid_type: str = "물품"
+    n2b_not: str = ""
+    n2b_but: str = ""
+    n2b_because: str = ""
+
+class BidDecisionRequest(BaseModel):
+    bid_name: str
+    estimated_price: int
+    our_cost: int
+    pros: str
+    cons: str
+
+# 입찰공고 매칭용 모델
+class BidAnalyzeNeedsRequest(BaseModel):
+    company_info: str  # 회사 역량, 관심분야
+    preferred_type: str = "전체"  # 물품, 공사, 용역, 외자, 전체
+    budget_range: str = ""  # 예: "1억~5억"
+
+class BidMatchRequest(BaseModel):
+    n2b_not: str
+    n2b_but: str
+    n2b_because: str
+    keywords: list[str]
+    preferred_type: str = "전체"
+
+# ============================================
+# 기업마당 API
+# ============================================
+async def fetch_bizinfo_programs(keyword: Optional[str] = None, count: int = 100) -> list:
+    url = "https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do"
+    params = {
+        "crtfcKey": BIZINFO_API_KEY,
+        "dataType": "xml",
+        "searchCnt": count,
+    }
+    if keyword:
+        params["searchKind"] = keyword
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            root = ET.fromstring(response.text)
+            programs = []
+            for item in root.findall(".//item"):
+                pblanc_id = item.findtext("pblancId", "")
+                program = {
+                    "id": pblanc_id,
+                    "name": item.findtext("pblancNm", ""),
+                    "agency": item.findtext("jrsdInsttNm", ""),
+                    "target": item.findtext("trgetNm", ""),
+                    "period": item.findtext("reqstBeginEndDe", ""),
+                    "support_content": item.findtext("sprtCn", ""),
+                    "url": f"https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/view.do?pblancId={pblanc_id}" if pblanc_id else "https://www.bizinfo.go.kr",
+                    "source": "기업마당"
                 }
-            }
-        }
+                programs.append(program)
+            return programs
+    except Exception as e:
+        print(f"[기업마당 오류] {e}")
+        return []
 
-        // 입찰 매칭
-        async function analyzeAndMatch() {
-            const companyInfo = document.getElementById('companyInfo').value;
-            const preferredType = document.getElementById('preferredType').value;
-            const budgetRange = document.getElementById('budgetRange').value;
+# ============================================
+# K-Startup API
+# ============================================
+async def fetch_kstartup_programs(keyword: Optional[str] = None, per_page: int = 100) -> list:
+    url = "https://apis.data.go.kr/B552735/kisedKstartupService01/getAnnouncementInformation01"
+    params = {
+        "ServiceKey": KSTARTUP_API_KEY,
+        "page": 1,
+        "perPage": per_page,
+        "returnType": "json"
+    }
 
-            if (!companyInfo) {
-                alert('회사 역량 및 관심분야를 입력해주세요.');
-                return;
-            }
-
-            const btn = document.getElementById('matchAnalyzeBtn');
-            const loading = document.getElementById('matchLoading');
-            const result = document.getElementById('matchResult');
-
-            btn.disabled = true;
-            loading.classList.add('show');
-            result.classList.remove('show');
-
-            try {
-                const headers = { 'Content-Type': 'application/json' };
-                if (premiumKey) headers['x-premium-key'] = premiumKey;
-
-                // 1단계: N2B 분석
-                const analyzeRes = await fetch(`${API_BASE}/api/bid-analyze-needs`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ company_info: companyInfo, preferred_type: preferredType, budget_range: budgetRange })
-                });
-
-                if (analyzeRes.status === 429) {
-                    alert('일일 사용 한도를 초과했습니다.');
-                    return;
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            items = data.get("data", [])
+            programs = []
+            for item in items:
+                program = {
+                    "id": item.get("PBLANC_ID", ""),
+                    "name": item.get("PBLANC_NM", ""),
+                    "agency": item.get("DEPARTMENT_NM", ""),
+                    "target": item.get("TRGET_NM", ""),
+                    "period": f"{item.get('RCPT_BGNG_DT', '')} ~ {item.get('RCPT_END_DT', '')}",
+                    "support_content": item.get("SPRT_CN", ""),
+                    "url": item.get("DETAIL_PAGE_URL", "https://www.k-startup.go.kr"),
+                    "source": "K-Startup"
                 }
+                programs.append(program)
+            return programs
+    except Exception as e:
+        print(f"[K-Startup 오류] {e}")
+        return []
 
-                const analyzeData = await analyzeRes.json();
-                if (!analyzeData.success) {
-                    alert('분석 실패');
-                    return;
-                }
+# ============================================
+# 조달청 API - 입찰공고 조회
+# ============================================
+async def fetch_bid_announcements(keyword: str, bid_type: str = "물품", count: int = 20) -> list:
+    type_endpoints = {
+        "물품": "getBidPblancListInfoThngPPSSrch",
+        "공사": "getBidPblancListInfoCnstwkPPSSrch", 
+        "용역": "getBidPblancListInfoServcPPSSrch",
+        "외자": "getBidPblancListInfoFrgcptPPSSrch"
+    }
+    
+    endpoint = type_endpoints.get(bid_type, "getBidPblancListInfoThngPPSSrch")
+    # 올바른 End Point 사용
+    url = f"https://apis.data.go.kr/1230000/ad/BidPublicInfoService/{endpoint}"
+    
+    # 검색 기간: 30일 전부터 오늘까지
+    from datetime import timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=30)
+    
+    params = {
+        "ServiceKey": PUBLIC_DATA_API_KEY,
+        "pageNo": 1,
+        "numOfRows": count,
+        "type": "json",
+        "inqryDiv": "1",  # 필수: 조회구분 (1=공고명)
+        "inqryBgnDt": start_date.strftime("%Y%m%d") + "0000",
+        "inqryEndDt": end_date.strftime("%Y%m%d") + "2359"
+    }
+    
+    # 키워드가 있으면 추가
+    if keyword and keyword.strip():
+        params["bidNm"] = keyword
 
-                const n2b = analyzeData.result.n2b || {};
-                const keywords = analyzeData.result.keywords || [];
-                currentN2B = n2b;
-                currentKeywords = keywords;
-
-                // N2B 결과 표시
-                displayMatchN2B(analyzeData.result);
-
-                // 2단계: 공고 매칭
-                const matchRes = await fetch(`${API_BASE}/api/bid-match`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        n2b_not: n2b.not || '',
-                        n2b_but: n2b.but || '',
-                        n2b_because: n2b.because || '',
-                        keywords: keywords,
-                        preferred_type: preferredType
-                    })
-                });
-
-                const matchData = await matchRes.json();
-                if (matchData.success) {
-                    displayMatchBids(matchData.matched, matchData.total_fetched);
-                }
-
-                result.classList.add('show');
-                fetchUsage();
-
-            } catch (e) {
-                alert('서버 연결 실패: ' + e.message);
-            } finally {
-                btn.disabled = false;
-                loading.classList.remove('show');
-            }
-        }
-
-        function displayMatchN2B(result) {
-            const n2b = result.n2b || {};
-            let html = `
-                <div class="ai-n2b-box">
-                    <div class="ai-n2b-item">
-                        <div class="ai-n2b-label not">Not</div>
-                        <div class="ai-n2b-content">${n2b.not || '-'}</div>
-                    </div>
-                    <div class="ai-n2b-item">
-                        <div class="ai-n2b-label but">But</div>
-                        <div class="ai-n2b-content">${n2b.but || '-'}</div>
-                    </div>
-                    <div class="ai-n2b-item">
-                        <div class="ai-n2b-label because">Because</div>
-                        <div class="ai-n2b-content">${n2b.because || '-'}</div>
-                    </div>
-                </div>
-            `;
-
-            if (result.strengths && result.strengths.length > 0) {
-                html += `<p><strong>💪 강점:</strong> ${result.strengths.join(', ')}</p>`;
-            }
-            if (result.advice) {
-                html += `<p><strong>💡 전략:</strong> ${result.advice}</p>`;
-            }
-            if (result.keywords && result.keywords.length > 0) {
-                html += `<div class="keyword-tags">${result.keywords.map(k => `<span class="keyword-tag">${k}</span>`).join('')}</div>`;
-            }
-
-            document.getElementById('matchN2BContent').innerHTML = html;
-        }
-
-        function displayMatchBids(bids, totalFetched) {
-            if (!bids || bids.length === 0) {
-                document.getElementById('matchBidsContent').innerHTML = `<p style="color: var(--text-muted);">조건에 맞는 입찰공고를 찾지 못했습니다. (검색된 공고: ${totalFetched}건)</p>`;
-                return;
-            }
-
-            let html = `<p style="margin-bottom: 1rem; color: var(--text-muted);">총 ${totalFetched}건 중 ${bids.length}건 추천</p>`;
-
-            bids.forEach(bid => {
-                html += `
-                    <div class="bid-card">
-                        <div class="bid-card-header">
-                            <div class="bid-card-title">${bid.bid_name}</div>
-                            <div class="bid-card-score">${bid.fit_score}점</div>
-                        </div>
-                        <div class="bid-card-info">
-                            <span>🏢 ${bid.agency || '-'}</span>
-                            <span>📦 ${bid.bid_type}</span>
-                            <span>💰 ${(bid.estimated_price || 0).toLocaleString()}원</span>
-                            <span>📅 ${bid.deadline || '-'}</span>
-                        </div>
-                        <div class="bid-card-reason">
-                            <strong>추천 이유:</strong> ${bid.reason || '-'}
-                            ${bid.risk ? `<br><strong style="color: var(--not-color);">⚠️ 주의:</strong> ${bid.risk}` : ''}
-                        </div>
-                        <div class="bid-card-actions">
-                            <button class="btn btn-secondary" onclick="selectBidForPrice('${bid.bid_name.replace(/'/g, "\\'")}', ${bid.estimated_price || 0}, '${bid.bid_type}')">💰 가격분석</button>
-                            <button class="btn btn-secondary" onclick="selectBidForDecision('${bid.bid_name.replace(/'/g, "\\'")}', ${bid.estimated_price || 0})">🎯 의사결정</button>
-                            ${bid.url ? `<a href="${bid.url}" target="_blank" class="btn btn-secondary">🔗 공고보기</a>` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-
-            document.getElementById('matchBidsContent').innerHTML = html;
-        }
-
-        function selectBidForPrice(name, price, type) {
-            document.getElementById('priceTitle').value = name;
-            document.getElementById('estimatedPrice').value = price.toLocaleString('ko-KR');
-            document.getElementById('bidType').value = type;
-            calculatePrice();
-            showSection('price');
-        }
-
-        function selectBidForDecision(name, price) {
-            document.getElementById('decisionTitle').value = name;
-            document.getElementById('decisionEstimated').value = price.toLocaleString('ko-KR');
-            showSection('decision');
-        }
-
-        // 가격 분석
-        async function analyzePriceWithAI() {
-            const title = document.getElementById('priceTitle').value;
-            const bidType = document.getElementById('bidType').value;
-            const estimated = parseNumber(document.getElementById('estimatedPrice').value);
-            const cost = parseNumber(document.getElementById('ourCost').value);
-
-            if (!title || !estimated || !cost) {
-                alert('입찰 공고명, 예정가격, 원가를 입력해주세요.');
-                return;
-            }
-
-            const btn = document.getElementById('priceAnalyzeBtn');
-            const loading = document.getElementById('priceLoading');
-            const result = document.getElementById('priceResult');
-
-            btn.disabled = true;
-            loading.classList.add('show');
-            result.classList.remove('show');
-
-            try {
-                const headers = { 'Content-Type': 'application/json' };
-                if (premiumKey) headers['x-premium-key'] = premiumKey;
-
-                const res = await fetch(`${API_BASE}/api/bid-price-analyze`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ bid_name: title, estimated_price: estimated, our_cost: cost, bid_type: bidType })
-                });
-
-                if (res.status === 429) { alert('일일 사용 한도를 초과했습니다.'); return; }
-
-                const data = await res.json();
-                if (data.success) {
-                    displayPriceResult(data.result, data.winning_bids_count);
-                    fetchUsage();
-                }
-            } catch (e) {
-                alert('서버 연결 실패: ' + e.message);
-            } finally {
-                btn.disabled = false;
-                loading.classList.remove('show');
-            }
-        }
-
-        function displayPriceResult(result, winningCount) {
-            const n2b = result.n2b || {};
-            const analysis = result.analysis || {};
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            items = data.get("response", {}).get("body", {}).get("items", [])
             
-            document.getElementById('priceResultContent').innerHTML = `
-                <div class="ai-n2b-box">
-                    <div class="ai-n2b-item"><div class="ai-n2b-label not">Not</div><div class="ai-n2b-content">${n2b.not || '-'}</div></div>
-                    <div class="ai-n2b-item"><div class="ai-n2b-label but">But</div><div class="ai-n2b-content">${n2b.but || '-'}</div></div>
-                    <div class="ai-n2b-item"><div class="ai-n2b-label because">Because</div><div class="ai-n2b-content">${n2b.because || '-'}</div></div>
-                </div>
-                <div class="ai-analysis-box">
-                    <h4>📊 분석 결과</h4>
-                    <div class="stat-grid">
-                        <div class="stat-item"><div class="value">${analysis.bubble_rate?.toFixed(1) || 0}%</div><div class="label">거품률</div></div>
-                        <div class="stat-item"><div class="value">${analysis.recommended_rate?.toFixed(1) || 88}%</div><div class="label">추천 투찰률</div></div>
-                        <div class="stat-item"><div class="value">${winningCount || 0}건</div><div class="label">유사입찰</div></div>
-                    </div>
-                    <p><strong>💡 전략:</strong> ${analysis.strategy || '-'}</p>
-                    <p><strong>📌 추천 투찰가:</strong> ${(analysis.recommended_min || 0).toLocaleString()}원 ~ ${(analysis.recommended_max || 0).toLocaleString()}원</p>
-                </div>
-            `;
-            document.getElementById('priceResult').classList.add('show');
-        }
-
-        // 의사결정
-        async function analyzeDecisionWithAI() {
-            const title = document.getElementById('decisionTitle').value;
-            const estimated = parseNumber(document.getElementById('decisionEstimated').value);
-            const cost = parseNumber(document.getElementById('decisionCost').value);
-            const pros = document.getElementById('decisionPro').value;
-            const cons = document.getElementById('decisionCon').value;
-
-            if (!title || !estimated || !cost) {
-                alert('입찰 공고명, 예정가격, 원가를 입력해주세요.');
-                return;
-            }
-
-            const btn = document.getElementById('decisionAnalyzeBtn');
-            const loading = document.getElementById('decisionLoading');
-            const result = document.getElementById('decisionResult');
-
-            btn.disabled = true;
-            loading.classList.add('show');
-            result.classList.remove('show');
-
-            try {
-                const headers = { 'Content-Type': 'application/json' };
-                if (premiumKey) headers['x-premium-key'] = premiumKey;
-
-                const res = await fetch(`${API_BASE}/api/bid-decision`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ bid_name: title, estimated_price: estimated, our_cost: cost, pros, cons })
-                });
-
-                if (res.status === 429) { alert('일일 사용 한도를 초과했습니다.'); return; }
-
-                const data = await res.json();
-                if (data.success) {
-                    displayDecisionResult(data.result);
-                    fetchUsage();
+            # items가 없거나 빈 경우
+            if not items:
+                return []
+            
+            # items가 딕셔너리인 경우 (단일 결과)
+            if isinstance(items, dict):
+                items = [items]
+            
+            # items가 리스트 안에 딕셔너리로 감싸져 있는 경우
+            if isinstance(items, list) and len(items) > 0 and isinstance(items[0], dict) and "item" in items[0]:
+                items = items[0].get("item", [])
+                if isinstance(items, dict):
+                    items = [items]
+            
+            bids = []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                bid = {
+                    "bid_no": item.get("bidNtceNo", ""),
+                    "bid_name": item.get("bidNtceNm", ""),
+                    "agency": item.get("ntceInsttNm", ""),
+                    "demand_agency": item.get("dminsttNm", ""),
+                    "estimated_price": item.get("presmptPrce", 0),
+                    "base_price": item.get("asignBdgtAmt", 0),
+                    "bid_method": item.get("bidMethdNm", ""),
+                    "contract_method": item.get("cntrctCnclsMthdNm", ""),
+                    "deadline": item.get("bidClseDt", ""),
+                    "open_date": item.get("opengDt", ""),
+                    "url": item.get("bidNtceDtlUrl", ""),
+                    "bid_type": bid_type
                 }
-            } catch (e) {
-                alert('서버 연결 실패: ' + e.message);
-            } finally {
-                btn.disabled = false;
-                loading.classList.remove('show');
-            }
-        }
+                bids.append(bid)
+            return bids
+    except Exception as e:
+        print(f"[조달청 입찰공고 오류] {e}")
+        return []
 
-        function displayDecisionResult(result) {
-            const decision = result.decision || '분석 중';
-            const n2b = result.n2b || {};
-            let badgeClass = decision === '참여' ? 'participate' : decision === '불참' ? 'not-participate' : 'conditional';
+# ============================================
+# 조달청 API - 낙찰정보 조회
+# ============================================
+async def fetch_winning_bids(keyword: str, bid_type: str = "물품", count: int = 20) -> list:
+    type_endpoints = {
+        "물품": "getOpengResultListInfoThngPPSSrch",
+        "공사": "getOpengResultListInfoCnstwkPPSSrch",
+        "용역": "getOpengResultListInfoServcPPSSrch",
+        "외자": "getOpengResultListInfoFrgcptPPSSrch"
+    }
+    
+    endpoint = type_endpoints.get(bid_type, "getOpengResultListInfoThngPPSSrch")
+    url = f"https://apis.data.go.kr/1230000/ScsbidInfoService/{endpoint}"
+    
+    params = {
+        "ServiceKey": PUBLIC_DATA_API_KEY,
+        "pageNo": 1,
+        "numOfRows": count,
+        "type": "json",
+        "bidNm": keyword,
+        "inqryDiv": "1"
+    }
 
-            document.getElementById('decisionResultContent').innerHTML = `
-                <div style="text-align: center; margin-bottom: 1.5rem;">
-                    <div class="decision-badge ${badgeClass}">${decision}</div>
-                    <p style="color: var(--text-muted);">확신도: ${result.confidence || 0}%</p>
-                </div>
-                <div class="ai-n2b-box">
-                    <div class="ai-n2b-item"><div class="ai-n2b-label not">Not</div><div class="ai-n2b-content">${n2b.not || '-'}</div></div>
-                    <div class="ai-n2b-item"><div class="ai-n2b-label but">But</div><div class="ai-n2b-content">${n2b.but || '-'}</div></div>
-                    <div class="ai-n2b-item"><div class="ai-n2b-label because">Because</div><div class="ai-n2b-content">${n2b.because || '-'}</div></div>
-                </div>
-                ${result.key_factors ? `<p><strong>🔑 핵심요소:</strong> ${result.key_factors.join(', ')}</p>` : ''}
-                ${result.action_items ? `<p><strong>✅ 실행항목:</strong> ${result.action_items.join(', ')}</p>` : ''}
-            `;
-            document.getElementById('decisionResult').classList.add('show');
-        }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            items = data.get("response", {}).get("body", {}).get("items", [])
+            if not items:
+                return []
+            results = []
+            for item in items:
+                estimated = float(item.get("presmptPrce", 0) or 0)
+                winning = float(item.get("sucsfbidAmt", 0) or 0)
+                rate = (winning / estimated * 100) if estimated > 0 else 0
+                result = {
+                    "bid_no": item.get("bidNtceNo", ""),
+                    "bid_name": item.get("bidNtceNm", ""),
+                    "agency": item.get("ntceInsttNm", ""),
+                    "estimated_price": estimated,
+                    "winning_price": winning,
+                    "winning_rate": round(rate, 2),
+                    "winner": item.get("sucsfbidCorpNm", ""),
+                    "open_date": item.get("opengDt", ""),
+                    "participant_count": item.get("prtcptCnum", 0)
+                }
+                results.append(result)
+            return results
+    except Exception as e:
+        print(f"[조달청 낙찰정보 오류] {e}")
+        return []
 
-        function clearMatch() {
-            document.getElementById('companyInfo').value = '';
-            document.getElementById('budgetRange').value = '';
-            document.getElementById('matchResult').classList.remove('show');
-        }
+# ============================================
+# 조달청 API - 시장가격 조회
+# ============================================
+async def fetch_market_prices(keyword: str, price_type: str = "자재") -> list:
+    type_endpoints = {
+        "자재": "getStdMktPrcList",
+        "시공": "getMrktStnPrcList"
+    }
+    
+    endpoint = type_endpoints.get(price_type, "getStdMktPrcList")
+    url = f"https://apis.data.go.kr/1230000/PriceInfoService/{endpoint}"
+    
+    params = {
+        "ServiceKey": PUBLIC_DATA_API_KEY,
+        "pageNo": 1,
+        "numOfRows": 20,
+        "type": "json",
+        "prdctNm": keyword
+    }
 
-        function clearPrice() {
-            document.getElementById('priceTitle').value = '';
-            document.getElementById('estimatedPrice').value = '';
-            document.getElementById('ourCost').value = '';
-            document.getElementById('priceResult').classList.remove('show');
-            document.getElementById('bubbleAnalysis').style.display = 'none';
-            document.getElementById('bidRange').textContent = '-';
-        }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            items = data.get("response", {}).get("body", {}).get("items", [])
+            if not items:
+                return []
+            prices = []
+            for item in items:
+                price = {
+                    "product_name": item.get("prdctNm", ""),
+                    "spec": item.get("sstdNm", ""),
+                    "unit": item.get("untNm", ""),
+                    "price": item.get("bsePrc", 0),
+                    "effective_date": item.get("aplcDt", "")
+                }
+                prices.append(price)
+            return prices
+    except Exception as e:
+        print(f"[조달청 가격정보 오류] {e}")
+        return []
 
-        function clearDecision() {
-            document.getElementById('decisionTitle').value = '';
-            document.getElementById('decisionEstimated').value = '';
-            document.getElementById('decisionCost').value = '';
-            document.getElementById('decisionPro').value = '';
-            document.getElementById('decisionCon').value = '';
-            document.getElementById('decisionResult').classList.remove('show');
+# ============================================
+# Claude 호출 함수들
+# ============================================
+async def analyze_with_claude(worry: str) -> dict:
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        messages=[{
+            "role": "user",
+            "content": f"""기업 대표의 고민: {worry}
+
+이 고민을 N2B(NOT-BUT-BECAUSE) 프레임워크로 분석하고, 정부지원사업 검색 키워드를 추출해주세요.
+
+반드시 아래 JSON 형식으로만 답변하세요:
+{{
+  "not": "핵심 문제가 ~이 아니라",
+  "but": "진짜 문제는 ~이다",
+  "because": "왜냐하면 ~때문이다",
+  "keywords": ["키워드1", "키워드2", "키워드3"]
+}}"""
+        }]
+    )
+    text = response.content[0].text
+    json_match = re.search(r'\{[\s\S]*\}', text)
+    if json_match:
+        return json.loads(json_match.group())
+    return {"not": "분석 실패", "but": "", "because": "", "keywords": []}
+
+
+async def score_programs_with_claude(n2b: dict, programs: list, region: str) -> list:
+    if not programs:
+        return []
+    candidates = programs[:30]
+    program_list = "\n".join([
+        f"{i+1}. [{p['source']}] {p['name']} | {p['agency']} | {p['period']}"
+        for i, p in enumerate(candidates)
+    ])
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=4096,
+        messages=[{
+            "role": "user",
+            "content": f"""N2B 분석 결과를 바탕으로 아래 실제 정부지원사업 중 가장 적합한 5개를 선택하고 매칭 점수를 매겨주세요.
+
+N2B 분석:
+- NOT: {n2b.get('not', '')}
+- BUT: {n2b.get('but', '')}
+- BECAUSE: {n2b.get('because', '')}
+- 키워드: {', '.join(n2b.get('keywords', []))}
+- 지역: {region}
+
+실제 공고 목록:
+{program_list}
+
+반드시 아래 JSON 배열 형식으로만 답변하세요:
+[
+  {{"index": 1, "fit_score": 92, "reason": "추천 이유"}},
+  {{"index": 3, "fit_score": 87, "reason": "추천 이유"}}
+]"""
+        }]
+    )
+    text = response.content[0].text
+    json_match = re.search(r'\[[\s\S]*\]', text)
+    results = []
+    if json_match:
+        try:
+            scored = json.loads(json_match.group())
+            for item in scored:
+                idx = item.get("index", 1) - 1
+                if 0 <= idx < len(candidates):
+                    prog = candidates[idx].copy()
+                    prog["fit_score"] = item.get("fit_score", 80)
+                    prog["reason"] = item.get("reason", "")
+                    results.append(prog)
+        except:
+            pass
+    return results
+
+
+async def generate_proposal_with_claude(req: ProposalRequest) -> str:
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=4096,
+        messages=[{
+            "role": "user",
+            "content": f"""다음 정보를 바탕으로 정부지원사업 제안서 초안을 작성해주세요.
+
+기업 정보:
+{req.company_info}
+
+N2B 분석 결과:
+- NOT: {req.n2b_not}
+- BUT: {req.n2b_but}
+- BECAUSE: {req.n2b_because}
+
+선택한 지원사업:
+- 사업명: {req.program_name}
+- 설명: {req.program_description}
+- 지원 규모: {req.program_budget}
+
+제안서는 다음 섹션으로 구성해주세요:
+1. 사업 개요
+2. 추진 배경 및 필요성 (N2B 분석 기반)
+3. 사업 목표
+4. 추진 전략 및 방법
+5. 기대 효과"""
+        }]
+    )
+    return response.content[0].text
+
+
+async def generate_ppt_with_claude(req: PptRequest) -> str:
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=4096,
+        messages=[{
+            "role": "user",
+            "content": f"""다음 정보를 바탕으로 발표자료(PPT) 구성안을 작성해주세요.
+
+기업 정보:
+{req.company_info}
+
+N2B 분석 결과:
+- NOT: {req.n2b_not}
+- BUT: {req.n2b_but}
+- BECAUSE: {req.n2b_because}
+
+선택한 지원사업:
+- 사업명: {req.program_name}
+- 설명: {req.program_description}
+- 지원 규모: {req.program_budget}
+
+발표자료는 10-15장 분량으로 구성해주세요."""
+        }]
+    )
+    return response.content[0].text
+
+
+# ============================================
+# wise-agency용 Claude 함수들
+# ============================================
+AGENCY_SYSTEM_PROMPT = """당신은 '슬기로운 진흥원생활' 앱의 N2B 코치입니다.
+
+성남산업진흥원 직원의 고민을 듣고 N2B(NOT-BUT-BECAUSE) 프레임워크로 분석해주세요.
+
+## N2B 프레임워크
+- NOT (N): 문제가 ~이 아니라 (표면적/잘못된 원인 부정)
+- BUT (B): ~이다 (진짜 원인 제시)
+- BECAUSE (C): 왜냐하면 ~때문이다 (근거/논리적 설명)
+
+## 응답 형식 (반드시 JSON으로)
+{
+  "n2b": {
+    "not": "~이 아니라",
+    "but": "~이다", 
+    "because": "~때문이다"
+  },
+  "suggestion": "[목표]를 위해서는 [행동]을 해야 합니다.",
+  "nextAction": "~해드리겠습니다"
+}"""
+
+
+async def agency_analyze_with_claude(worry: str) -> dict:
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        system=AGENCY_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": worry}]
+    )
+    text = response.content[0].text
+    json_match = re.search(r'\{[\s\S]*\}', text)
+    if json_match:
+        return json.loads(json_match.group())
+    return {
+        "n2b": {"not": "분석 중", "but": "문제의 본질을 파악하는 중입니다", "because": "조금 더 구체적인 상황을 알려주시면 정확한 분석이 가능합니다"},
+        "suggestion": text
+    }
+
+
+async def agency_deepdive_with_claude(previous_but: str, messages: list) -> dict:
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    deep_prompt = f"""이전 분석에서 "{previous_but}"라고 했습니다.
+이것이 왜 진짜 원인인지 더 깊이 분석해주세요.
+
+반드시 아래 JSON 형식으로만 답변해주세요:
+{{
+  "n2b": {{
+    "not": "표면적 원인이 아니라",
+    "but": "더 근본적인 원인이다", 
+    "because": "왜냐하면 ~때문이다"
+  }},
+  "suggestion": "구체적 제안",
+  "nextAction": "다음 행동을 ~해드리겠습니다"
+}}"""
+    api_messages = messages + [{"role": "user", "content": deep_prompt}]
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        system="당신은 N2B 분석 전문가입니다. 반드시 지정된 JSON 형식으로만 답변하세요.",
+        messages=api_messages
+    )
+    text = response.content[0].text
+    json_match = re.search(r'\{[\s\S]*\}', text)
+    if json_match:
+        return json.loads(json_match.group())
+    return {
+        "n2b": {"not": "분석 중", "but": "더 깊은 분석이 필요합니다", "because": "추가 정보가 필요합니다"},
+        "suggestion": text
+    }
+
+
+# ============================================
+# wise-bid용 Claude 함수들
+# ============================================
+async def analyze_bid_price_with_claude(req: BidPriceAnalyzeRequest, winning_bids: list) -> dict:
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    
+    if winning_bids:
+        rates = [b["winning_rate"] for b in winning_bids if b["winning_rate"] > 0]
+        avg_rate = sum(rates) / len(rates) if rates else 0
+        min_rate = min(rates) if rates else 0
+        max_rate = max(rates) if rates else 0
+        winning_info = f"""
+유사 입찰 낙찰률 통계 (최근 {len(winning_bids)}건):
+- 평균 낙찰률: {avg_rate:.2f}%
+- 최저 낙찰률: {min_rate:.2f}%
+- 최고 낙찰률: {max_rate:.2f}%"""
+    else:
+        avg_rate = 88.0
+        winning_info = "유사 입찰 데이터가 없어 일반적인 낙찰률(88%)을 기준으로 분석합니다."
+    
+    bubble_rate = ((req.estimated_price - req.our_cost) / req.estimated_price * 100) if req.estimated_price > 0 else 0
+    
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        messages=[{
+            "role": "user",
+            "content": f"""입찰 가격 N2B 분석을 해주세요.
+
+입찰 정보:
+- 공고명: {req.bid_name}
+- 입찰 유형: {req.bid_type}
+- 예정가격: {req.estimated_price:,}원
+- 우리 원가: {req.our_cost:,}원
+- 거품률: {bubble_rate:.1f}%
+{winning_info}
+
+사용자 입력 N2B:
+- NOT: {req.n2b_not or '(미입력)'}
+- BUT: {req.n2b_but or '(미입력)'}
+- BECAUSE: {req.n2b_because or '(미입력)'}
+
+다음 JSON 형식으로 분석 결과를 제공해주세요:
+{{
+  "n2b": {{
+    "not": "이 예정가격은 ~이 아니다 (거품 분석)",
+    "but": "적정 가격은 ~이다",
+    "because": "왜냐하면 ~때문이다"
+  }},
+  "analysis": {{
+    "bubble_rate": {bubble_rate:.1f},
+    "bubble_analysis": "거품 분석 설명",
+    "recommended_min": 추천최저투찰가숫자,
+    "recommended_max": 추천최고투찰가숫자,
+    "recommended_rate": 추천투찰률숫자,
+    "strategy": "투찰 전략 설명"
+  }},
+  "risks": ["리스크1", "리스크2"],
+  "suggestions": ["제안1", "제안2"]
+}}"""
+        }]
+    )
+    text = response.content[0].text
+    json_match = re.search(r'\{[\s\S]*\}', text)
+    if json_match:
+        try:
+            return json.loads(json_match.group())
+        except:
+            pass
+    
+    recommended_rate = avg_rate if avg_rate > 0 else 88.0
+    return {
+        "n2b": {
+            "not": f"예정가격 {req.estimated_price:,}원이 적정가격이 아니다",
+            "but": f"원가 기반 적정가격은 {int(req.our_cost * 1.1):,}원이다",
+            "because": f"거품률 {bubble_rate:.1f}%를 고려할 때 원가+10% 수준이 적정하다"
+        },
+        "analysis": {
+            "bubble_rate": bubble_rate,
+            "bubble_analysis": f"예정가격 대비 {bubble_rate:.1f}%의 거품이 존재합니다.",
+            "recommended_min": int(req.estimated_price * 0.8745),
+            "recommended_max": int(req.estimated_price * recommended_rate / 100),
+            "recommended_rate": recommended_rate,
+            "strategy": f"유사 입찰 평균 낙찰률 {recommended_rate:.1f}% 기준으로 투찰 권장"
+        },
+        "risks": ["경쟁 과열 시 낙찰률 하락 가능", "원가 상승 리스크"],
+        "suggestions": ["경쟁업체 동향 파악", "원가 재검토"]
+    }
+
+
+async def analyze_bid_decision_with_claude(req: BidDecisionRequest) -> dict:
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    profit_rate = ((req.estimated_price - req.our_cost) / req.our_cost * 100) if req.our_cost > 0 else 0
+    
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        messages=[{
+            "role": "user",
+            "content": f"""입찰 참여 의사결정을 N2B 프레임워크로 분석해주세요.
+
+입찰 정보:
+- 공고명: {req.bid_name}
+- 예정가격: {req.estimated_price:,}원
+- 우리 원가: {req.our_cost:,}원
+- 예상 수익률: {profit_rate:.1f}%
+
+참여 이유: {req.pros}
+불참 이유: {req.cons}
+
+다음 JSON 형식으로 의사결정 분석을 제공해주세요:
+{{
+  "decision": "참여" 또는 "불참" 또는 "조건부 참여",
+  "confidence": 확신도0에서100,
+  "n2b": {{
+    "not": "단순히 ~때문에 참여/불참하는 것이 아니다",
+    "but": "진짜 판단 기준은 ~이다",
+    "because": "왜냐하면 ~때문이다"
+  }},
+  "key_factors": ["핵심 판단 요소1", "핵심 판단 요소2"],
+  "conditions": ["이 조건이면 참여", "이 조건이면 불참"],
+  "action_items": ["실행 항목1", "실행 항목2"]
+}}"""
+        }]
+    )
+    text = response.content[0].text
+    json_match = re.search(r'\{[\s\S]*\}', text)
+    if json_match:
+        try:
+            return json.loads(json_match.group())
+        except:
+            pass
+    
+    decision = "참여" if profit_rate > 10 else "조건부 참여" if profit_rate > 5 else "불참"
+    return {
+        "decision": decision,
+        "confidence": 70,
+        "n2b": {
+            "not": "단순히 수익률만 보고 판단하는 것이 아니다",
+            "but": f"종합적으로 {decision}이 적절하다",
+            "because": f"예상 수익률 {profit_rate:.1f}%와 리스크를 고려했기 때문이다"
+        },
+        "key_factors": ["수익률", "경쟁 강도", "리소스 가용성"],
+        "conditions": ["수익률 10% 이상 확보 시 참여"],
+        "action_items": ["상세 원가 검토", "경쟁업체 분석"]
+    }
+
+
+# ============================================
+# wise-bid 입찰공고 매칭용 Claude 함수들
+# ============================================
+async def analyze_bid_needs_with_claude(company_info: str, preferred_type: str, budget_range: str) -> dict:
+    """회사 역량/관심분야를 N2B로 분석하고 입찰 검색 키워드 추출"""
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        messages=[{
+            "role": "user",
+            "content": f"""다음 회사 정보를 바탕으로 N2B 분석과 적합한 입찰공고 검색 키워드를 추출해주세요.
+
+회사 역량/관심분야:
+{company_info}
+
+선호 입찰 유형: {preferred_type}
+선호 예산 규모: {budget_range or '제한 없음'}
+
+N2B 관점에서 분석해주세요:
+- NOT: 이 회사가 피해야 할 입찰 유형 (역량과 맞지 않는 것)
+- BUT: 이 회사에 적합한 입찰 유형 (강점을 살릴 수 있는 것)
+- BECAUSE: 그 이유 (핵심 역량, 실적, 차별화 요소)
+
+반드시 아래 JSON 형식으로만 답변하세요:
+{{
+  "n2b": {{
+    "not": "이 회사는 ~한 입찰은 피해야 한다",
+    "but": "~한 입찰에 집중해야 한다",
+    "because": "왜냐하면 ~한 강점이 있기 때문이다"
+  }},
+  "keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"],
+  "recommended_types": ["물품", "용역"],
+  "strengths": ["강점1", "강점2"],
+  "advice": "입찰 전략 조언"
+}}"""
+        }]
+    )
+    
+    text = response.content[0].text
+    json_match = re.search(r'\{[\s\S]*\}', text)
+    if json_match:
+        try:
+            return json.loads(json_match.group())
+        except:
+            pass
+    return {
+        "n2b": {"not": "분석 실패", "but": "", "because": ""},
+        "keywords": [],
+        "recommended_types": [preferred_type] if preferred_type != "전체" else ["물품", "공사", "용역"],
+        "strengths": [],
+        "advice": ""
+    }
+
+
+async def match_bids_with_claude(n2b: dict, bids: list, keywords: list) -> list:
+    """입찰공고 목록에서 적합한 공고를 선별하고 점수 매기기"""
+    if not bids:
+        return []
+    
+    candidates = bids[:30]
+    
+    def format_price(price):
+        try:
+            return f"{int(price):,}"
+        except:
+            return str(price)
+    
+    bid_list = "\n".join([
+        f"{i+1}. [{b['bid_type']}] {b['bid_name']} | {b['agency']} | 예정가: {format_price(b.get('estimated_price', 0))}원 | 마감: {b.get('deadline', '')}"
+        for i, b in enumerate(candidates)
+    ])
+    
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=4096,
+        messages=[{
+            "role": "user",
+            "content": f"""N2B 분석 결과를 바탕으로 아래 입찰공고 중 가장 적합한 5개를 선택하고 매칭 점수를 매겨주세요.
+
+N2B 분석:
+- NOT: {n2b.get('not', '')}
+- BUT: {n2b.get('but', '')}
+- BECAUSE: {n2b.get('because', '')}
+- 검색 키워드: {', '.join(keywords)}
+
+입찰공고 목록:
+{bid_list}
+
+반드시 아래 JSON 배열 형식으로만 답변하세요. 번호는 위 목록의 번호입니다:
+[
+  {{"index": 1, "fit_score": 92, "reason": "추천 이유", "risk": "주의사항"}},
+  {{"index": 3, "fit_score": 87, "reason": "추천 이유", "risk": "주의사항"}}
+]"""
+        }]
+    )
+    
+    text = response.content[0].text
+    json_match = re.search(r'\[[\s\S]*\]', text)
+    
+    results = []
+    if json_match:
+        try:
+            scored = json.loads(json_match.group())
+            for item in scored:
+                idx = item.get("index", 1) - 1
+                if 0 <= idx < len(candidates):
+                    bid = candidates[idx].copy()
+                    bid["fit_score"] = item.get("fit_score", 80)
+                    bid["reason"] = item.get("reason", "")
+                    bid["risk"] = item.get("risk", "")
+                    results.append(bid)
+        except:
+            pass
+    
+    return results
+
+
+# ============================================
+# API 엔드포인트
+# ============================================
+
+@app.get("/")
+async def root():
+    return {"status": "ok", "version": "3.3", "message": "N2B Backend + price 포맷 수정"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+@app.post("/api/analyze")
+async def analyze(req: AnalyzeRequest, request: Request):
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "biz", is_premium)
+    try:
+        result = await analyze_with_claude(req.worry)
+        return {"success": True, "n2b": result, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/match")
+async def match(req: MatchRequest, request: Request):
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "biz", is_premium)
+    try:
+        keyword = req.keywords[0] if req.keywords else None
+        bizinfo_task = fetch_bizinfo_programs(keyword)
+        kstartup_task = fetch_kstartup_programs(keyword)
+        bizinfo_programs, kstartup_programs = await asyncio.gather(bizinfo_task, kstartup_task)
+        all_programs = bizinfo_programs + kstartup_programs
+        n2b = {"not": req.n2b_not, "but": req.n2b_but, "because": req.n2b_because, "keywords": req.keywords}
+        matched = await score_programs_with_claude(n2b, all_programs, req.region)
+        return {"success": True, "total_fetched": len(all_programs), "bizinfo_count": len(bizinfo_programs), "kstartup_count": len(kstartup_programs), "matched": matched, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/proposal")
+async def proposal(req: ProposalRequest, request: Request):
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "proposal", is_premium)
+    try:
+        text = await generate_proposal_with_claude(req)
+        return {"success": True, "content": text, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ppt-outline")
+async def ppt_outline(req: PptRequest, request: Request):
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "proposal", is_premium)
+    try:
+        text = await generate_ppt_with_claude(req)
+        return {"success": True, "content": text, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/programs")
+async def get_programs(keyword: Optional[str] = None):
+    bizinfo = await fetch_bizinfo_programs(keyword)
+    kstartup = await fetch_kstartup_programs(keyword)
+    return {"bizinfo_count": len(bizinfo), "kstartup_count": len(kstartup), "total": len(bizinfo) + len(kstartup), "programs": bizinfo + kstartup}
+
+@app.post("/api/agency-analyze")
+async def agency_analyze(req: AgencyAnalyzeRequest, request: Request):
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    rate_info = check_rate_limit(ip, "agency")
+    try:
+        result = await agency_analyze_with_claude(req.worry)
+        return {"success": True, "result": result, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/agency-deepdive")
+async def agency_deepdive(req: AgencyDeepDiveRequest, request: Request):
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    rate_info = check_rate_limit(ip, "agency")
+    try:
+        result = await agency_deepdive_with_claude(req.previous_but, req.messages)
+        return {"success": True, "result": result, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# wise-bid 전용 엔드포인트
+# ============================================
+
+@app.post("/api/bid-search")
+async def bid_search(req: BidSearchRequest, request: Request):
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "bid", is_premium)
+    try:
+        bids = await fetch_bid_announcements(req.keyword, req.bid_type, req.count)
+        return {"success": True, "count": len(bids), "bids": bids, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/bid-winning")
+async def bid_winning(req: BidSearchRequest, request: Request):
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "bid", is_premium)
+    try:
+        results = await fetch_winning_bids(req.keyword, req.bid_type, req.count)
+        rates = [r["winning_rate"] for r in results if r["winning_rate"] > 0]
+        stats = {"count": len(results), "avg_rate": round(sum(rates) / len(rates), 2) if rates else 0, "min_rate": min(rates) if rates else 0, "max_rate": max(rates) if rates else 0}
+        return {"success": True, "stats": stats, "results": results, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/bid-price-analyze")
+async def bid_price_analyze(req: BidPriceAnalyzeRequest, request: Request):
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "bid", is_premium)
+    try:
+        winning_bids = await fetch_winning_bids(req.bid_name, req.bid_type, 10)
+        result = await analyze_bid_price_with_claude(req, winning_bids)
+        return {"success": True, "result": result, "winning_bids_count": len(winning_bids), "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/bid-decision")
+async def bid_decision(req: BidDecisionRequest, request: Request):
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "bid", is_premium)
+    try:
+        result = await analyze_bid_decision_with_claude(req)
+        return {"success": True, "result": result, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 입찰공고 매칭 엔드포인트
+@app.post("/api/bid-analyze-needs")
+async def bid_analyze_needs(req: BidAnalyzeNeedsRequest, request: Request):
+    """회사 역량/관심분야를 N2B로 분석하고 입찰 검색 키워드 추출"""
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "bid", is_premium)
+    try:
+        result = await analyze_bid_needs_with_claude(req.company_info, req.preferred_type, req.budget_range)
+        return {"success": True, "result": result, "usage": rate_info}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/bid-match")
+async def bid_match(req: BidMatchRequest, request: Request):
+    """N2B 분석 결과를 바탕으로 입찰공고 매칭"""
+    if not CLAUDE_API_KEY:
+        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
+    ip = get_client_ip(request)
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    rate_info = check_rate_limit(ip, "bid", is_premium)
+    try:
+        # 키워드별로 입찰공고 검색
+        all_bids = []
+        bid_types = [req.preferred_type] if req.preferred_type != "전체" else ["물품", "공사", "용역"]
+        
+        for keyword in req.keywords[:3]:  # 최대 3개 키워드
+            for bid_type in bid_types:
+                bids = await fetch_bid_announcements(keyword, bid_type, 10)
+                all_bids.extend(bids)
+        
+        # 중복 제거
+        seen = set()
+        unique_bids = []
+        for bid in all_bids:
+            if bid["bid_no"] not in seen:
+                seen.add(bid["bid_no"])
+                unique_bids.append(bid)
+        
+        # AI 매칭
+        n2b = {"not": req.n2b_not, "but": req.n2b_but, "because": req.n2b_because}
+        matched = await match_bids_with_claude(n2b, unique_bids, req.keywords)
+        
+        return {
+            "success": True,
+            "total_fetched": len(unique_bids),
+            "matched": matched,
+            "usage": rate_info
         }
-    </script>
-</body>
-</html>
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/market-price")
+async def market_price(keyword: str, price_type: str = "자재"):
+    try:
+        prices = await fetch_market_prices(keyword, price_type)
+        return {"success": True, "count": len(prices), "prices": prices}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 테스트용 GET 엔드포인트
+@app.get("/api/bid-test")
+async def bid_test(keyword: str = "", bid_type: str = "공사", count: int = 10):
+    """브라우저에서 조달청 API 테스트용"""
+    try:
+        bids = await fetch_bid_announcements(keyword, bid_type, count)
+        return {"success": True, "count": len(bids), "keyword": keyword, "bid_type": bid_type, "bids": bids}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# bid-match 디버깅용 GET 엔드포인트
+@app.get("/api/bid-match-test")
+async def bid_match_test(keyword: str = "도로", bid_type: str = "공사"):
+    """bid-match 디버깅용"""
+    try:
+        # 1. 입찰공고 검색
+        bids = await fetch_bid_announcements(keyword, bid_type, 10)
+        if not bids:
+            return {"step": "fetch", "success": False, "message": "공고 검색 결과 없음"}
+        
+        # 2. AI 매칭 (간단한 테스트용 N2B)
+        n2b = {
+            "not": "대규모 공사는 피해야 한다",
+            "but": "소규모 도로포장에 집중해야 한다",
+            "because": "경험과 장비가 있기 때문이다"
+        }
+        keywords = [keyword]
+        
+        matched = await match_bids_with_claude(n2b, bids, keywords)
+        
+        return {
+            "success": True,
+            "fetched_count": len(bids),
+            "matched_count": len(matched),
+            "matched": matched
+        }
+    except Exception as e:
+        import traceback
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+
+@app.get("/api/usage")
+async def get_usage(request: Request):
+    ip = get_client_ip(request)
+    today = str(date.today())
+    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
+    usage = daily_usage.get(today, {}).get(ip, {"biz": 0, "proposal": 0, "agency": 0, "bid": 0})
+    biz_limit = LIMITS["biz"]["premium"] if is_premium else LIMITS["biz"]["normal"]
+    proposal_limit = LIMITS["proposal"]["premium"] if is_premium else LIMITS["proposal"]["normal"]
+    agency_limit = LIMITS["agency"]["normal"]
+    bid_limit = LIMITS["bid"]["premium"] if is_premium else LIMITS["bid"]["normal"]
+    return {
+        "date": today,
+        "biz": {"used": usage.get("biz", 0), "limit": biz_limit, "remaining": biz_limit - usage.get("biz", 0), "tier": "premium" if is_premium else "normal"},
+        "proposal": {"used": usage.get("proposal", 0), "limit": proposal_limit, "remaining": proposal_limit - usage.get("proposal", 0), "tier": "premium" if is_premium else "normal"},
+        "agency": {"used": usage.get("agency", 0), "limit": agency_limit, "remaining": agency_limit - usage.get("agency", 0)},
+        "bid": {"used": usage.get("bid", 0), "limit": bid_limit, "remaining": bid_limit - usage.get("bid", 0), "tier": "premium" if is_premium else "normal"}
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=10000)
