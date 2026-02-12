@@ -293,6 +293,10 @@
         .keyword-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
         .keyword-tag { background: var(--primary); color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; }
 
+        .sample-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; padding: 1rem; background: var(--bg-main); border-radius: 10px; }
+        .sample-btn { padding: 0.5rem 1rem; border: 1px solid var(--border); background: white; border-radius: 20px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+        .sample-btn:hover { border-color: var(--primary); color: var(--primary); background: #f0f7ff; }
+
         @media (max-width: 768px) {
             header h1 { font-size: 1.8rem; }
             main { padding: 1rem; }
@@ -367,6 +371,14 @@
             <div class="card">
                 <h2><span class="icon">🔍</span> 입찰공고 N2B 매칭</h2>
                 <p>우리 회사 역량과 관심분야를 입력하면, AI가 N2B 분석 후 적합한 입찰공고를 찾아드립니다.</p>
+
+                <div class="sample-buttons">
+                    <span style="font-size: 0.9rem; color: var(--text-muted);">샘플 선택:</span>
+                    <button class="sample-btn" onclick="loadSample(1)">🏗️ 건설/토목</button>
+                    <button class="sample-btn" onclick="loadSample(2)">💻 IT/소프트웨어</button>
+                    <button class="sample-btn" onclick="loadSample(3)">📦 물품/납품</button>
+                    <button class="sample-btn" onclick="loadSample(4)">📊 용역/컨설팅</button>
+                </div>
 
                 <div class="form-group">
                     <label>우리 회사 역량 및 관심분야</label>
@@ -577,6 +589,53 @@
         }
 
         fetchUsage();
+
+        const samples = {
+            1: {
+                info: `도로포장 전문업체, 아스팔트/콘크리트 시공 20년 경력
+서울/경기 지역 위주, 5억 이하 소규모 공사 선호
+최근 3년간 도로유지보수 실적 50건 이상
+장비 보유: 아스팔트 피니셔, 롤러, 덤프트럭`,
+                type: '공사',
+                budget: '1억~5억'
+            },
+            2: {
+                info: `웹/앱 개발 전문 중소기업, 직원 15명
+공공기관 행정시스템 구축 경험 다수
+Java, Python, React 기술 보유
+정보보안 인증(ISMS) 취득, 클라우드 전환 사업 관심
+1억~3억 규모 용역 선호`,
+                type: '용역',
+                budget: '1억~3억'
+            },
+            3: {
+                info: `사무용품 및 전산장비 납품업체
+조달청 MAS 등록 업체, 나라장터 10년 거래
+컴퓨터, 프린터, 복합기 등 IT기기 전문
+전국 배송 가능, 5천만원~2억 규모 선호
+관공서/학교 납품 실적 다수`,
+                type: '물품',
+                budget: '5천만원~2억'
+            },
+            4: {
+                info: `교통 및 도로안전 컨설팅 전문
+교통영향평가, 안전진단 면허 보유
+대학교수 출신 박사급 인력 5명
+국토부/지자체 연구용역 실적 30건 이상
+3억~10억 규모 연구용역 선호`,
+                type: '용역',
+                budget: '3억~10억'
+            }
+        };
+
+        function loadSample(num) {
+            const sample = samples[num];
+            if (sample) {
+                document.getElementById('companyInfo').value = sample.info;
+                document.getElementById('preferredType').value = sample.type;
+                document.getElementById('budgetRange').value = sample.budget;
+            }
+        }
 
         function showSection(sectionId, btn) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
