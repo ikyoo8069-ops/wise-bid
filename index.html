@@ -24,11 +24,7 @@
             --shadow-hover: 0 8px 30px rgba(0,0,0,0.12);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -38,7 +34,6 @@
             line-height: 1.6;
         }
 
-        /* Header */
         header {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
             color: white;
@@ -59,38 +54,25 @@
             transform: rotate(15deg);
         }
 
-        header h1 {
-            font-size: 2.2rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            position: relative;
-        }
+        header h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 0.5rem; position: relative; }
+        header p { font-size: 1.1rem; opacity: 0.9; position: relative; }
 
-        header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            position: relative;
-        }
-
-        .n2b-badge {
-            display: inline-flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-            position: relative;
-        }
-
-        .n2b-badge span {
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
+        .n2b-badge { display: inline-flex; gap: 0.5rem; margin-top: 1rem; position: relative; }
+        .n2b-badge span { padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
         .badge-not { background: var(--not-color); }
         .badge-but { background: var(--but-color); }
         .badge-because { background: var(--because-color); }
 
-        /* Navigation */
+        /* Usage Bar */
+        .usage-bar {
+            background: rgba(255,255,255,0.15);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            display: inline-block;
+        }
+
         nav {
             background: var(--bg-card);
             border-bottom: 1px solid var(--border);
@@ -115,38 +97,19 @@
             font-family: inherit;
         }
 
-        nav button:hover {
-            background: var(--bg-main);
-            color: var(--primary);
-        }
+        nav button:hover { background: var(--bg-main); color: var(--primary); }
+        nav button.active { background: var(--primary); color: white; }
 
-        nav button.active {
-            background: var(--primary);
-            color: white;
-        }
+        main { max-width: 1000px; margin: 0 auto; padding: 2rem; }
 
-        /* Main Content */
-        main {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        .section {
-            display: none;
-            animation: fadeIn 0.4s ease;
-        }
-
-        .section.active {
-            display: block;
-        }
+        .section { display: none; animation: fadeIn 0.4s ease; }
+        .section.active { display: block; }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Cards */
         .card {
             background: var(--bg-card);
             border-radius: 16px;
@@ -165,26 +128,10 @@
             gap: 0.5rem;
         }
 
-        .card h2 .icon {
-            font-size: 1.6rem;
-        }
+        .card > p { color: var(--text-muted); margin-bottom: 1.5rem; }
 
-        .card > p {
-            color: var(--text-muted);
-            margin-bottom: 1.5rem;
-        }
-
-        /* Form Elements */
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-main);
-        }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-main); }
 
         .form-group input,
         .form-group textarea,
@@ -200,57 +147,20 @@
 
         .form-group input:focus,
         .form-group textarea:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
+        .form-group select:focus { outline: none; border-color: var(--primary); }
 
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
+        .form-group textarea { min-height: 100px; resize: vertical; }
 
-        /* N2B Input Group */
-        .n2b-group {
-            background: var(--bg-main);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-        }
+        .n2b-group { background: var(--bg-main); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+        .n2b-group h3 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-main); }
 
-        .n2b-group h3 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: var(--text-main);
-        }
-
-        .n2b-input {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            align-items: flex-start;
-        }
-
-        .n2b-label {
-            min-width: 90px;
-            padding: 0.7rem 1rem;
-            border-radius: 8px;
-            font-weight: 700;
-            color: white;
-            text-align: center;
-            font-size: 0.9rem;
-        }
-
+        .n2b-input { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: flex-start; }
+        .n2b-label { min-width: 90px; padding: 0.7rem 1rem; border-radius: 8px; font-weight: 700; color: white; text-align: center; font-size: 0.9rem; }
         .n2b-label.not { background: var(--not-color); }
         .n2b-label.but { background: var(--but-color); }
         .n2b-label.because { background: var(--because-color); }
+        .n2b-input textarea { flex: 1; min-height: 80px; }
 
-        .n2b-input textarea {
-            flex: 1;
-            min-height: 80px;
-        }
-
-        /* Buttons */
         .btn {
             padding: 1rem 2rem;
             border: none;
@@ -262,35 +172,18 @@
             font-family: inherit;
         }
 
-        .btn-primary {
-            background: var(--accent);
-            color: white;
-        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(237, 137, 54, 0.4); }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 
-        .btn-primary:hover {
-            background: var(--accent-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(237, 137, 54, 0.4);
-        }
+        .btn-secondary { background: var(--bg-main); color: var(--text-main); border: 2px solid var(--border); }
+        .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
 
-        .btn-secondary {
-            background: var(--bg-main);
-            color: var(--text-main);
-            border: 2px solid var(--border);
-        }
+        .btn-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
 
-        .btn-secondary:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-        }
+        .btn-large { padding: 1.2rem 2.5rem; font-size: 1.1rem; }
+        a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; }
 
-        .btn-group {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-
-        /* Result Box */
         .result-box {
             background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
             border: 2px solid var(--because-color);
@@ -300,163 +193,37 @@
             display: none;
         }
 
-        .result-box.show {
-            display: block;
-            animation: slideUp 0.4s ease;
-        }
+        .result-box.show { display: block; animation: slideUp 0.4s ease; }
 
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .result-box h3 {
-            color: var(--because-color);
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+        .result-box h3 { color: var(--because-color); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .result-content { white-space: pre-wrap; line-height: 1.8; color: var(--text-main); }
 
-        .result-content {
-            white-space: pre-wrap;
-            line-height: 1.8;
-            color: var(--text-main);
-        }
+        .price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .price-item { background: var(--bg-main); padding: 1.2rem; border-radius: 10px; text-align: center; }
+        .price-item label { display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+        .price-item input { text-align: center; font-size: 1.2rem; font-weight: 600; }
 
-        /* Price Calculator */
-        .price-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
+        .price-result { background: var(--primary); color: white; padding: 1.5rem; border-radius: 12px; text-align: center; }
+        .price-result .label { font-size: 0.95rem; opacity: 0.9; margin-bottom: 0.3rem; }
+        .price-result .value { font-size: 2rem; font-weight: 700; }
 
-        .price-item {
-            background: var(--bg-main);
-            padding: 1.2rem;
-            border-radius: 10px;
-            text-align: center;
-        }
+        .bubble-info { background: #fff5f5; border-left: 4px solid var(--not-color); padding: 1rem 1.2rem; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+        .bubble-info.positive { background: #f0fff4; border-left-color: var(--because-color); }
 
-        .price-item label {
-            display: block;
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-
-        .price-item input {
-            text-align: center;
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-
-        .price-result {
-            background: var(--primary);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            text-align: center;
-        }
-
-        .price-result .label {
-            font-size: 0.95rem;
-            opacity: 0.9;
-            margin-bottom: 0.3rem;
-        }
-
-        .price-result .value {
-            font-size: 2rem;
-            font-weight: 700;
-        }
-
-        .bubble-info {
-            background: #fff5f5;
-            border-left: 4px solid var(--not-color);
-            padding: 1rem 1.2rem;
-            margin: 1rem 0;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .bubble-info.positive {
-            background: #f0fff4;
-            border-left-color: var(--because-color);
-        }
-
-        /* Feature List */
-        .feature-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-            margin: 1.5rem 0;
-        }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            padding: 0.8rem 1rem;
-            background: var(--bg-main);
-            border-radius: 8px;
-        }
-
-        .feature-icon {
-            font-size: 1.2rem;
-        }
-
-        .btn-large {
-            padding: 1.2rem 2.5rem;
-            font-size: 1.1rem;
-        }
-
-        a.btn {
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        /* Decision Matrix */
-        .decision-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin: 1.5rem 0;
-        }
-
-        .decision-item {
-            padding: 1rem;
-            border-radius: 10px;
-            border: 2px solid var(--border);
-        }
-
-        .decision-item.pro {
-            background: #f0fff4;
-            border-color: var(--because-color);
-        }
-
-        .decision-item.con {
-            background: #fff5f5;
-            border-color: var(--not-color);
-        }
-
-        .decision-item h4 {
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-        }
-
+        .decision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+        .decision-item { padding: 1rem; border-radius: 10px; border: 2px solid var(--border); }
+        .decision-item.pro { background: #f0fff4; border-color: var(--because-color); }
+        .decision-item.con { background: #fff5f5; border-color: var(--not-color); }
+        .decision-item h4 { font-size: 1rem; margin-bottom: 0.5rem; }
         .decision-item.pro h4 { color: var(--because-color); }
         .decision-item.con h4 { color: var(--not-color); }
 
-        /* Home Section */
-        .home-grid {
-            display: flex;
-            justify-content: center;
-            gap: 1.5rem;
-            margin-top: 1rem;
-        }
-
+        .home-grid { display: flex; justify-content: center; gap: 1.5rem; margin-top: 1rem; }
         .home-card {
             background: var(--bg-card);
             border-radius: 16px;
@@ -469,58 +236,48 @@
             width: 280px;
             flex-shrink: 0;
         }
+        .home-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); border-color: var(--primary); }
+        .home-card .icon { font-size: 3rem; margin-bottom: 1rem; }
+        .home-card h3 { font-size: 1.3rem; color: var(--primary); margin-bottom: 0.5rem; }
+        .home-card p { color: var(--text-muted); font-size: 0.95rem; }
 
-        .home-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-hover);
-            border-color: var(--primary);
-        }
+        .info-box { background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%); border: 1px solid #90cdf4; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .info-box h4 { color: var(--primary-light); margin-bottom: 0.5rem; }
+        .info-box p { color: var(--text-secondary); font-size: 0.95rem; }
 
-        .home-card .icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
+        .feature-list { display: flex; flex-direction: column; gap: 0.8rem; margin: 1.5rem 0; }
+        .feature-item { display: flex; align-items: center; gap: 0.8rem; padding: 0.8rem 1rem; background: var(--bg-main); border-radius: 8px; }
+        .feature-icon { font-size: 1.2rem; }
 
-        .home-card h3 {
-            font-size: 1.3rem;
-            color: var(--primary);
-            margin-bottom: 0.5rem;
-        }
+        .loading { display: none; text-align: center; padding: 2rem; }
+        .loading.show { display: block; }
+        .spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .home-card p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-        }
+        /* AI Result Sections */
+        .ai-result { margin-top: 1.5rem; }
+        .ai-n2b-box { background: var(--bg-main); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+        .ai-n2b-item { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: flex-start; }
+        .ai-n2b-item:last-child { margin-bottom: 0; }
+        .ai-n2b-label { min-width: 90px; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 700; color: white; text-align: center; font-size: 0.85rem; }
+        .ai-n2b-content { flex: 1; padding: 0.5rem 0; line-height: 1.6; }
 
-        /* Info Box */
-        .info-box {
-            background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%);
-            border: 1px solid #90cdf4;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
+        .ai-analysis-box { background: #f0fff4; border: 1px solid var(--because-color); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+        .ai-analysis-box h4 { color: var(--because-color); margin-bottom: 1rem; }
 
-        .info-box h4 {
-            color: var(--primary-light);
-            margin-bottom: 0.5rem;
-        }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        .stat-item { text-align: center; padding: 1rem; background: white; border-radius: 8px; }
+        .stat-item .value { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+        .stat-item .label { font-size: 0.85rem; color: var(--text-muted); }
 
-        .info-box p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-        }
+        .decision-badge { display: inline-block; padding: 0.5rem 1.5rem; border-radius: 20px; font-weight: 700; font-size: 1.2rem; margin-bottom: 1rem; }
+        .decision-badge.participate { background: var(--because-color); color: white; }
+        .decision-badge.not-participate { background: var(--not-color); color: white; }
+        .decision-badge.conditional { background: var(--accent); color: white; }
 
-        /* Responsive */
         @media (max-width: 900px) {
-            .home-grid {
-                flex-direction: column;
-                align-items: center;
-            }
-            .home-card {
-                width: 100%;
-                max-width: 320px;
-            }
+            .home-grid { flex-direction: column; align-items: center; }
+            .home-card { width: 100%; max-width: 320px; }
         }
 
         @media (max-width: 768px) {
@@ -529,34 +286,11 @@
             .card { padding: 1.5rem; }
             .n2b-input { flex-direction: column; }
             .n2b-label { min-width: 100%; }
+            .ai-n2b-item { flex-direction: column; }
+            .ai-n2b-label { min-width: 100%; }
             .decision-grid { grid-template-columns: 1fr; }
             nav { padding: 0.5rem 1rem; }
             nav button { padding: 0.6rem 1rem; font-size: 0.9rem; }
-        }
-
-        /* Loading */
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 2rem;
-        }
-
-        .loading.show {
-            display: block;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -569,13 +303,16 @@
             <span class="badge-but">But</span>
             <span class="badge-because">Because</span>
         </div>
+        <div class="usage-bar" id="usageBar">
+            오늘 사용량: <span id="usageCount">-</span> / <span id="usageLimit">10</span>회
+        </div>
     </header>
 
     <nav>
-        <button class="active" onclick="showSection('home')">🏠 홈</button>
-        <button onclick="showSection('proposal')">📝 제안서 N2B</button>
-        <button onclick="showSection('decision')">🎯 참여 의사결정</button>
-        <button onclick="showSection('price')">💰 가격 N2B</button>
+        <button class="active" onclick="showSection('home', this)">🏠 홈</button>
+        <button onclick="showSection('proposal', this)">📝 제안서 N2B</button>
+        <button onclick="showSection('price', this)">💰 가격 N2B</button>
+        <button onclick="showSection('decision', this)">🎯 참여 의사결정</button>
     </nav>
 
     <main>
@@ -593,16 +330,16 @@
                     <p>평가항목별 논리 구조화로<br>거품 없는 설득력 있는 제안서</p>
                 </div>
 
-                <div class="home-card" onclick="showSection('decision')">
-                    <div class="icon">🎯</div>
-                    <h3>참여 의사결정</h3>
-                    <p>이 입찰에 참여해야 할까?<br>N2B로 논리적 판단</p>
-                </div>
-
                 <div class="home-card" onclick="showSection('price')">
                     <div class="icon">💰</div>
                     <h3>가격 N2B</h3>
-                    <p>원가 분석을 통한<br>거품 제거와 적정가격 산정</p>
+                    <p>AI가 유사 입찰 분석으로<br>거품 제거와 적정가격 제안</p>
+                </div>
+
+                <div class="home-card" onclick="showSection('decision')">
+                    <div class="icon">🎯</div>
+                    <h3>참여 의사결정</h3>
+                    <p>이 입찰에 참여해야 할까?<br>AI가 N2B로 논리적 판단</p>
                 </div>
             </div>
         </section>
@@ -645,11 +382,21 @@
         <section id="price" class="section">
             <div class="card">
                 <h2><span class="icon">💰</span> 가격 N2B 분석</h2>
-                <p>예정가격과 원가를 분석하여 거품을 제거하고 적정 투찰가를 산정합니다.</p>
+                <p>AI가 유사 입찰 낙찰률을 분석하여 거품을 제거하고 적정 투찰가를 제안합니다.</p>
 
                 <div class="form-group">
                     <label>입찰 공고명</label>
                     <input type="text" id="priceTitle" placeholder="예: 2024년 도로 안전시설 개선사업">
+                </div>
+
+                <div class="form-group">
+                    <label>입찰 유형</label>
+                    <select id="bidType">
+                        <option value="물품">물품</option>
+                        <option value="공사">공사</option>
+                        <option value="용역">용역</option>
+                        <option value="외자">외자</option>
+                    </select>
                 </div>
 
                 <div class="price-grid">
@@ -678,7 +425,7 @@
                 </div>
 
                 <div class="n2b-group" style="margin-top: 1.5rem;">
-                    <h3>가격 N2B 논리</h3>
+                    <h3>가격 N2B 논리 (선택 입력)</h3>
                     
                     <div class="n2b-input">
                         <div class="n2b-label not">Not</div>
@@ -697,13 +444,18 @@
                 </div>
 
                 <div class="btn-group">
-                    <button class="btn btn-primary" onclick="analyzePrice()">🔍 가격 N2B 분석</button>
+                    <button class="btn btn-primary" id="priceAnalyzeBtn" onclick="analyzePriceWithAI()">🤖 AI 분석하기</button>
                     <button class="btn btn-secondary" onclick="clearPrice()">초기화</button>
                 </div>
 
+                <div class="loading" id="priceLoading">
+                    <div class="spinner"></div>
+                    <p>AI가 유사 입찰을 분석하고 있습니다...</p>
+                </div>
+
                 <div id="priceResult" class="result-box">
-                    <h3>✅ 가격 N2B 분석 결과</h3>
-                    <div class="result-content" id="priceResultContent"></div>
+                    <h3>✅ AI 가격 N2B 분석 결과</h3>
+                    <div id="priceResultContent"></div>
                 </div>
             </div>
         </section>
@@ -712,102 +464,83 @@
         <section id="decision" class="section">
             <div class="card">
                 <h2><span class="icon">🎯</span> 입찰 참여 의사결정</h2>
-                <p>이 입찰에 참여해야 할지 N2B 논리로 판단합니다.</p>
+                <p>AI가 입찰 참여 여부를 N2B 논리로 분석하여 판단을 도와드립니다.</p>
 
                 <div class="form-group">
                     <label>입찰 공고명</label>
                     <input type="text" id="decisionTitle" placeholder="예: 2024년 도로 안전시설 개선사업">
                 </div>
 
-                <div class="form-group">
-                    <label>예정가격 규모</label>
-                    <input type="text" id="decisionBudget" placeholder="예: 1억원">
+                <div class="price-grid">
+                    <div class="price-item">
+                        <label>예정가격 (원)</label>
+                        <input type="text" id="decisionEstimated" placeholder="100,000,000" oninput="formatNumber(this)">
+                    </div>
+                    <div class="price-item">
+                        <label>우리 원가 (원)</label>
+                        <input type="text" id="decisionCost" placeholder="80,000,000" oninput="formatNumber(this)">
+                    </div>
                 </div>
 
                 <div class="decision-grid">
                     <div class="decision-item pro">
-                        <h4>✅ 참여해야 하는 이유 (But)</h4>
+                        <h4>✅ 참여해야 하는 이유</h4>
                         <textarea id="decisionPro" placeholder="- 우리 핵심 역량과 일치&#10;- 수익성 확보 가능&#10;- 레퍼런스 구축 필요"></textarea>
                     </div>
                     <div class="decision-item con">
-                        <h4>❌ 참여하면 안되는 이유 (Not)</h4>
+                        <h4>❌ 참여하면 안되는 이유</h4>
                         <textarea id="decisionCon" placeholder="- 인력 부족&#10;- 경쟁 과열&#10;- 수익성 불투명"></textarea>
                     </div>
                 </div>
 
-                <div class="n2b-group">
-                    <h3>최종 의사결정 N2B</h3>
-                    
-                    <div class="n2b-input">
-                        <div class="n2b-label not">Not</div>
-                        <textarea id="decisionNot" placeholder="단순히 입찰 공고가 있다고 참여하는 것은 적절하지 않다&#10;예: 무분별한 입찰 참여는 리소스 낭비..."></textarea>
-                    </div>
-
-                    <div class="n2b-input">
-                        <div class="n2b-label but">But</div>
-                        <textarea id="decisionBut" placeholder="이 입찰은 참여해야 한다 / 참여하지 말아야 한다&#10;예: 종합적으로 판단할 때 이 입찰은..."></textarea>
-                    </div>
-
-                    <div class="n2b-input">
-                        <div class="n2b-label because">Because</div>
-                        <textarea id="decisionBecause" placeholder="그 이유는?&#10;예: 우리 역량 적합도 80%, 예상 수익률 15%..."></textarea>
-                    </div>
-                </div>
-
                 <div class="btn-group">
-                    <button class="btn btn-primary" onclick="analyzeDecision()">🔍 의사결정 분석</button>
+                    <button class="btn btn-primary" id="decisionAnalyzeBtn" onclick="analyzeDecisionWithAI()">🤖 AI 의사결정 분석</button>
                     <button class="btn btn-secondary" onclick="clearDecision()">초기화</button>
                 </div>
 
+                <div class="loading" id="decisionLoading">
+                    <div class="spinner"></div>
+                    <p>AI가 의사결정을 분석하고 있습니다...</p>
+                </div>
+
                 <div id="decisionResult" class="result-box">
-                    <h3>✅ 의사결정 N2B 분석 결과</h3>
-                    <div class="result-content" id="decisionResultContent"></div>
+                    <h3>✅ AI 의사결정 분석 결과</h3>
+                    <div id="decisionResultContent"></div>
                 </div>
             </div>
         </section>
     </main>
 
     <script>
+        const API_BASE = 'https://n2b-backend-1.onrender.com';
+        let premiumKey = localStorage.getItem('bidPremiumKey') || '';
+
+        // 사용량 조회
+        async function fetchUsage() {
+            try {
+                const headers = {};
+                if (premiumKey) headers['x-premium-key'] = premiumKey;
+                
+                const res = await fetch(`${API_BASE}/api/usage`, { headers });
+                const data = await res.json();
+                
+                document.getElementById('usageCount').textContent = data.bid?.used || 0;
+                document.getElementById('usageLimit').textContent = data.bid?.limit || 10;
+            } catch (e) {
+                console.error('사용량 조회 실패:', e);
+            }
+        }
+
+        // 페이지 로드 시 사용량 조회
+        fetchUsage();
+
         // Section Navigation
-        function showSection(sectionId) {
+        function showSection(sectionId, btn) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
             
             document.getElementById(sectionId).classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        // Evaluation Guide Update
-        function updateEvalGuide() {
-            const guides = {
-                tech: {
-                    title: '기술능력 평가 작성 가이드',
-                    content: 'Not: 기존 기술/방식의 한계점 → But: 우리 기술의 차별점 → Because: 기술적 근거와 실증 데이터'
-                },
-                performance: {
-                    title: '수행실적 평가 작성 가이드',
-                    content: 'Not: 단순 실적 나열의 한계 → But: 유사 사업 성공 경험 → Because: 구체적 성과 수치와 발주처 평가'
-                },
-                plan: {
-                    title: '사업수행계획 평가 작성 가이드',
-                    content: 'Not: 일반적/추상적 계획의 문제 → But: 구체적/실행가능한 계획 → Because: 세부 일정, 리스크 관리 방안'
-                },
-                team: {
-                    title: '참여인력 평가 작성 가이드',
-                    content: 'Not: 인력 스펙만으로는 부족 → But: 해당 사업에 최적화된 팀 구성 → Because: 유사 프로젝트 경험, 팀워크 실적'
-                },
-                creative: {
-                    title: '창의성/차별성 평가 작성 가이드',
-                    content: 'Not: 기존 방식의 반복 → But: 혁신적 접근 방법 → Because: 기대효과, 적용 가능성 근거'
-                }
-            };
-            
-            const category = document.getElementById('evalCategory').value;
-            const guide = guides[category];
-            document.getElementById('evalGuide').innerHTML = `
-                <h4>📌 ${guide.title}</h4>
-                <p>${guide.content}</p>
-            `;
+            if (btn) btn.classList.add('active');
         }
 
         // Number Formatting
@@ -845,7 +578,7 @@
                     
                     if (bubble > 0) {
                         bubbleAnalysis.className = 'bubble-info';
-                        bubbleText.innerHTML = `예정가격 대비 <strong>${bubbleRate}%</strong>의 거품 존재 (${bubble.toLocaleString('ko-KR')}원). 원가 기준 적정 투찰가 산정이 유리합니다.`;
+                        bubbleText.innerHTML = `예정가격 대비 <strong>${bubbleRate}%</strong>의 거품 존재 (${bubble.toLocaleString('ko-KR')}원)`;
                     } else {
                         bubbleAnalysis.className = 'bubble-info positive';
                         bubbleText.innerHTML = `원가가 예정가격보다 높습니다. 참여 여부를 신중히 검토하세요.`;
@@ -854,150 +587,221 @@
             }
         }
 
-        // Proposal Analysis
-        function analyzeProposal() {
-            const title = document.getElementById('proposalTitle').value || '(미입력)';
-            const category = document.getElementById('evalCategory').options[document.getElementById('evalCategory').selectedIndex].text;
-            const not = document.getElementById('proposalNot').value || '(미입력)';
-            const but = document.getElementById('proposalBut').value || '(미입력)';
-            const because = document.getElementById('proposalBecause').value || '(미입력)';
-
-            const result = `📋 입찰: ${title}
-📑 평가항목: ${category}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔴 Not (문제 인식)
-${not}
-
-🔵 But (해결책 제시)
-${but}
-
-🟢 Because (근거 제시)
-${because}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 N2B 논리 흐름:
-"기존에는 [Not의 문제]가 있었으나, 
-우리는 [But의 해결책]을 제시하며, 
-이는 [Because의 근거]로 뒷받침됩니다."
-
-✅ 이 구조로 제안서를 작성하면 
-   심사위원에게 명확한 논리적 설득이 가능합니다.`;
-
-            document.getElementById('proposalResultContent').textContent = result;
-            document.getElementById('proposalResult').classList.add('show');
-        }
-
-        // Price Analysis
-        function analyzePrice() {
-            const title = document.getElementById('priceTitle').value || '(미입력)';
+        // AI 가격 분석
+        async function analyzePriceWithAI() {
+            const title = document.getElementById('priceTitle').value;
+            const bidType = document.getElementById('bidType').value;
             const estimated = parseNumber(document.getElementById('estimatedPrice').value);
             const cost = parseNumber(document.getElementById('ourCost').value);
-            const not = document.getElementById('priceNot').value || '(미입력)';
-            const but = document.getElementById('priceBut').value || '(미입력)';
-            const because = document.getElementById('priceBecause').value || '(미입력)';
 
-            let priceAnalysis = '';
-            if (estimated > 0 && cost > 0) {
-                const bubble = estimated - cost;
-                const bubbleRate = ((bubble / estimated) * 100).toFixed(1);
-                const profitMargin10 = Math.round(cost * 1.1);
-                const profitMargin15 = Math.round(cost * 1.15);
-                
-                priceAnalysis = `
-📊 가격 분석 요약:
-• 예정가격: ${estimated.toLocaleString('ko-KR')}원
-• 우리 원가: ${cost.toLocaleString('ko-KR')}원
-• 거품률: ${bubbleRate}% (${bubble.toLocaleString('ko-KR')}원)
-• 적정 투찰가 (원가+10%): ${profitMargin10.toLocaleString('ko-KR')}원
-• 적정 투찰가 (원가+15%): ${profitMargin15.toLocaleString('ko-KR')}원
-`;
+            if (!title || !estimated || !cost) {
+                alert('입찰 공고명, 예정가격, 원가를 입력해주세요.');
+                return;
             }
 
-            const result = `📋 입찰: ${title}
-${priceAnalysis}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            const btn = document.getElementById('priceAnalyzeBtn');
+            const loading = document.getElementById('priceLoading');
+            const result = document.getElementById('priceResult');
 
-🔴 Not (거품 인식)
-${not}
+            btn.disabled = true;
+            loading.classList.add('show');
+            result.classList.remove('show');
 
-🔵 But (적정가격 제시)
-${but}
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (premiumKey) headers['x-premium-key'] = premiumKey;
 
-🟢 Because (가격 근거)
-${because}
+                const res = await fetch(`${API_BASE}/api/bid-price-analyze`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        bid_name: title,
+                        estimated_price: estimated,
+                        our_cost: cost,
+                        bid_type: bidType,
+                        n2b_not: document.getElementById('priceNot').value,
+                        n2b_but: document.getElementById('priceBut').value,
+                        n2b_because: document.getElementById('priceBecause').value
+                    })
+                });
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                if (res.status === 429) {
+                    alert('일일 사용 한도를 초과했습니다.');
+                    return;
+                }
 
-💡 가격 N2B 핵심:
-"제시된 가격은 [Not: 거품이 있으나],
-실제 적정가격은 [But: 이것이며],
-그 근거는 [Because: 원가분석 결과]입니다."
+                const data = await res.json();
+                
+                if (data.success) {
+                    displayPriceResult(data.result, data.winning_bids_count);
+                    fetchUsage();
+                } else {
+                    alert('분석 실패: ' + (data.detail || '알 수 없는 오류'));
+                }
+            } catch (e) {
+                alert('서버 연결 실패: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                loading.classList.remove('show');
+            }
+        }
 
-✅ 거품을 제거한 합리적 가격으로 
-   경쟁력과 수익성을 동시에 확보하세요.`;
+        function displayPriceResult(result, winningCount) {
+            const n2b = result.n2b || {};
+            const analysis = result.analysis || {};
+            
+            let html = `
+                <div class="ai-n2b-box">
+                    <div class="ai-n2b-item">
+                        <div class="ai-n2b-label not">Not</div>
+                        <div class="ai-n2b-content">${n2b.not || '-'}</div>
+                    </div>
+                    <div class="ai-n2b-item">
+                        <div class="ai-n2b-label but">But</div>
+                        <div class="ai-n2b-content">${n2b.but || '-'}</div>
+                    </div>
+                    <div class="ai-n2b-item">
+                        <div class="ai-n2b-label because">Because</div>
+                        <div class="ai-n2b-content">${n2b.because || '-'}</div>
+                    </div>
+                </div>
 
-            document.getElementById('priceResultContent').textContent = result;
+                <div class="ai-analysis-box">
+                    <h4>📊 AI 분석 결과</h4>
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <div class="value">${analysis.bubble_rate?.toFixed(1) || 0}%</div>
+                            <div class="label">거품률</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="value">${analysis.recommended_rate?.toFixed(1) || 88}%</div>
+                            <div class="label">추천 투찰률</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="value">${winningCount || 0}건</div>
+                            <div class="label">유사입찰 분석</div>
+                        </div>
+                    </div>
+                    <p><strong>💡 전략:</strong> ${analysis.strategy || '-'}</p>
+                    <p style="margin-top:0.5rem;"><strong>📌 추천 투찰가:</strong> ${(analysis.recommended_min || 0).toLocaleString()}원 ~ ${(analysis.recommended_max || 0).toLocaleString()}원</p>
+                </div>
+            `;
+
+            if (result.risks && result.risks.length > 0) {
+                html += `<p style="margin-top:1rem;"><strong>⚠️ 리스크:</strong> ${result.risks.join(', ')}</p>`;
+            }
+            if (result.suggestions && result.suggestions.length > 0) {
+                html += `<p><strong>💡 제안:</strong> ${result.suggestions.join(', ')}</p>`;
+            }
+
+            document.getElementById('priceResultContent').innerHTML = html;
             document.getElementById('priceResult').classList.add('show');
         }
 
-        // Decision Analysis
-        function analyzeDecision() {
-            const title = document.getElementById('decisionTitle').value || '(미입력)';
-            const budget = document.getElementById('decisionBudget').value || '(미입력)';
-            const pro = document.getElementById('decisionPro').value || '(미입력)';
-            const con = document.getElementById('decisionCon').value || '(미입력)';
-            const not = document.getElementById('decisionNot').value || '(미입력)';
-            const but = document.getElementById('decisionBut').value || '(미입력)';
-            const because = document.getElementById('decisionBecause').value || '(미입력)';
+        // AI 의사결정 분석
+        async function analyzeDecisionWithAI() {
+            const title = document.getElementById('decisionTitle').value;
+            const estimated = parseNumber(document.getElementById('decisionEstimated').value);
+            const cost = parseNumber(document.getElementById('decisionCost').value);
+            const pros = document.getElementById('decisionPro').value;
+            const cons = document.getElementById('decisionCon').value;
 
-            const result = `📋 입찰: ${title}
-💰 예정가격: ${budget}
+            if (!title || !estimated || !cost) {
+                alert('입찰 공고명, 예정가격, 원가를 입력해주세요.');
+                return;
+            }
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            const btn = document.getElementById('decisionAnalyzeBtn');
+            const loading = document.getElementById('decisionLoading');
+            const result = document.getElementById('decisionResult');
 
-✅ 참여 근거 (긍정 요인):
-${pro}
+            btn.disabled = true;
+            loading.classList.add('show');
+            result.classList.remove('show');
 
-❌ 불참 근거 (부정 요인):
-${con}
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (premiumKey) headers['x-premium-key'] = premiumKey;
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                const res = await fetch(`${API_BASE}/api/bid-decision`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        bid_name: title,
+                        estimated_price: estimated,
+                        our_cost: cost,
+                        pros: pros,
+                        cons: cons
+                    })
+                });
 
-🔴 Not (전제 부정)
-${not}
+                if (res.status === 429) {
+                    alert('일일 사용 한도를 초과했습니다.');
+                    return;
+                }
 
-🔵 But (결론)
-${but}
+                const data = await res.json();
+                
+                if (data.success) {
+                    displayDecisionResult(data.result);
+                    fetchUsage();
+                } else {
+                    alert('분석 실패: ' + (data.detail || '알 수 없는 오류'));
+                }
+            } catch (e) {
+                alert('서버 연결 실패: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                loading.classList.remove('show');
+            }
+        }
 
-🟢 Because (판단 근거)
-${because}
+        function displayDecisionResult(result) {
+            const decision = result.decision || '분석 중';
+            const confidence = result.confidence || 0;
+            const n2b = result.n2b || {};
+            
+            let badgeClass = 'conditional';
+            if (decision === '참여') badgeClass = 'participate';
+            else if (decision === '불참') badgeClass = 'not-participate';
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            let html = `
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <div class="decision-badge ${badgeClass}">${decision}</div>
+                    <p style="color: var(--text-muted);">확신도: ${confidence}%</p>
+                </div>
 
-💡 의사결정 N2B 핵심:
-"모든 입찰에 참여하는 것은 [Not: 적절하지 않으나],
-이 입찰은 [But: 참여/불참 결정]하며,
-그 이유는 [Because: 종합적 판단근거]입니다."
+                <div class="ai-n2b-box">
+                    <div class="ai-n2b-item">
+                        <div class="ai-n2b-label not">Not</div>
+                        <div class="ai-n2b-content">${n2b.not || '-'}</div>
+                    </div>
+                    <div class="ai-n2b-item">
+                        <div class="ai-n2b-label but">But</div>
+                        <div class="ai-n2b-content">${n2b.but || '-'}</div>
+                    </div>
+                    <div class="ai-n2b-item">
+                        <div class="ai-n2b-label because">Because</div>
+                        <div class="ai-n2b-content">${n2b.because || '-'}</div>
+                    </div>
+                </div>
+            `;
 
-✅ N2B 논리로 감이 아닌 
-   근거 기반 의사결정을 하세요.`;
+            if (result.key_factors && result.key_factors.length > 0) {
+                html += `<p style="margin-top:1rem;"><strong>🔑 핵심 판단 요소:</strong> ${result.key_factors.join(', ')}</p>`;
+            }
+            if (result.conditions && result.conditions.length > 0) {
+                html += `<p><strong>📋 조건:</strong> ${result.conditions.join(' / ')}</p>`;
+            }
+            if (result.action_items && result.action_items.length > 0) {
+                html += `<p><strong>✅ 실행 항목:</strong> ${result.action_items.join(', ')}</p>`;
+            }
 
-            document.getElementById('decisionResultContent').textContent = result;
+            document.getElementById('decisionResultContent').innerHTML = html;
             document.getElementById('decisionResult').classList.add('show');
         }
 
         // Clear Functions
-        function clearProposal() {
-            document.getElementById('proposalTitle').value = '';
-            document.getElementById('proposalNot').value = '';
-            document.getElementById('proposalBut').value = '';
-            document.getElementById('proposalBecause').value = '';
-            document.getElementById('proposalResult').classList.remove('show');
-        }
-
         function clearPrice() {
             document.getElementById('priceTitle').value = '';
             document.getElementById('estimatedPrice').value = '';
@@ -1012,12 +816,10 @@ ${because}
 
         function clearDecision() {
             document.getElementById('decisionTitle').value = '';
-            document.getElementById('decisionBudget').value = '';
+            document.getElementById('decisionEstimated').value = '';
+            document.getElementById('decisionCost').value = '';
             document.getElementById('decisionPro').value = '';
             document.getElementById('decisionCon').value = '';
-            document.getElementById('decisionNot').value = '';
-            document.getElementById('decisionBut').value = '';
-            document.getElementById('decisionBecause').value = '';
             document.getElementById('decisionResult').classList.remove('show');
         }
     </script>
