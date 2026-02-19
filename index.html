@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>슬기로운 입찰생활 v3 - N2B 원가분석</title>
+    <title>슬기로운 입찰생활 v4 - N2B 공고매칭</title>
     <link href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet">
     <style>
         :root {
@@ -403,6 +403,148 @@
             .home-grid { grid-template-columns: 1fr 1fr; }
             .work-type-grid { grid-template-columns: repeat(3, 1fr); }
             nav button { padding: 0.5rem 0.7rem; font-size: 0.8rem; }
+            .profile-grid { grid-template-columns: 1fr; }
+        }
+
+        /* 프로필 선택 그리드 */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .profile-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .profile-btn:hover {
+            border-color: var(--primary-light);
+            background: #f7fafc;
+        }
+
+        .profile-btn.selected {
+            border-color: var(--accent);
+            background: #fff5eb;
+        }
+
+        .profile-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .profile-name { font-weight: 600; color: var(--primary); margin-bottom: 0.3rem; }
+        .profile-desc { font-size: 0.8rem; color: var(--text-muted); text-align: center; }
+
+        /* 매칭 결과 */
+        .match-summary {
+            background: linear-gradient(135deg, #e6fffa 0%, #ebf8ff 100%);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+
+        .match-stat {
+            padding: 0.5rem;
+        }
+
+        .match-stat .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .match-stat .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .match-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .match-item {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .match-item:hover {
+            border-color: var(--primary-light);
+            box-shadow: var(--shadow);
+        }
+
+        .match-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+
+        .match-item-title {
+            font-weight: 600;
+            color: var(--primary);
+            flex: 1;
+            margin-right: 1rem;
+        }
+
+        .match-score {
+            background: var(--accent);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .match-score.high { background: var(--because-color); }
+        .match-score.medium { background: var(--accent); }
+        .match-score.low { background: var(--text-muted); }
+
+        .match-item-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .match-reasons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .match-reason {
+            background: #e6fffa;
+            color: var(--because-color);
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+
+        .match-item-actions {
+            margin-top: 0.8rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .match-item-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            font-size: 0.85rem;
         }
     </style>
 </head>
@@ -419,8 +561,9 @@
 
     <nav>
         <button class="active" onclick="showSection('home', this)">🏠 홈</button>
+        <button onclick="showSection('match', this)">🎯 공고매칭</button>
         <button onclick="showSection('cost', this)">📊 원가분석</button>
-        <button onclick="showSection('decision', this)">🎯 N2B판정</button>
+        <button onclick="showSection('decision', this)">✅ N2B판정</button>
         <button onclick="showSection('price', this)">💰 단가조회</button>
     </nav>
 
@@ -428,11 +571,17 @@
         <!-- Home Section -->
         <section id="home" class="section active">
             <div class="info-box">
-                <h4>💡 wise-bid v3.4 새 기능</h4>
-                <p><strong>개략원가 자동 산출</strong>: 기초금액과 공종만 입력하면 재료비/노무비/경비 비율로 표준원가를 계산하고, 업체 절감률을 적용하여 실제원가와 거품률을 산출합니다.</p>
+                <h4>💡 wise-bid v4.0 새 기능</h4>
+                <p><strong>🎯 공고매칭</strong>: 회사 프로필 기반 맞춤 공고 추천! 샘플 프로필로 바로 테스트해보세요.</p>
             </div>
 
             <div class="home-grid">
+                <div class="home-card" onclick="showSection('match')">
+                    <div class="icon">🎯</div>
+                    <h3>공고매칭</h3>
+                    <p>회사 맞춤형<br>입찰공고 추천</p>
+                </div>
+
                 <div class="home-card" onclick="showSection('cost')">
                     <div class="icon">📊</div>
                     <h3>원가분석</h3>
@@ -440,7 +589,7 @@
                 </div>
 
                 <div class="home-card" onclick="showSection('decision')">
-                    <div class="icon">🎯</div>
+                    <div class="icon">✅</div>
                     <h3>N2B 참여판정</h3>
                     <p>참여 vs 불참<br>점수로 판단</p>
                 </div>
@@ -449,12 +598,6 @@
                     <div class="icon">💰</div>
                     <h3>단가조회</h3>
                     <p>조달청 자재/시공<br>표준단가 검색</p>
-                </div>
-
-                <div class="home-card" onclick="showSection('cost')">
-                    <div class="icon">📈</div>
-                    <h3>투찰전략</h3>
-                    <p>적정 투찰률<br>투찰가 추천</p>
                 </div>
             </div>
 
@@ -474,6 +617,75 @@
                     <tr><td>⚙️ 설비</td><td>60%</td><td>25%</td><td>15%</td></tr>
                     <tr><td>⚡ 전기</td><td>55%</td><td>30%</td><td>15%</td></tr>
                 </table>
+            </div>
+        </section>
+
+        <!-- 공고매칭 Section (NEW!) -->
+        <section id="match" class="section">
+            <div class="card">
+                <h2>🎯 회사-공고 매칭</h2>
+                <p>회사 프로필을 선택하면 맞춤 입찰공고를 찾아드립니다.</p>
+
+                <!-- 샘플 프로필 선택 -->
+                <div class="form-group">
+                    <label>🏢 샘플 회사 선택</label>
+                    <div class="profile-grid">
+                        <button class="profile-btn selected" onclick="selectProfile(this, '도로포장전문')">
+                            <span class="profile-icon">🛣️</span>
+                            <span class="profile-name">(주)한길도로</span>
+                            <span class="profile-desc">도로포장 전문 | 5천만~20억</span>
+                        </button>
+                        <button class="profile-btn" onclick="selectProfile(this, '종합건설중견')">
+                            <span class="profile-icon">🏗️</span>
+                            <span class="profile-name">대한종합건설(주)</span>
+                            <span class="profile-desc">종합건설 | 5억~500억</span>
+                        </button>
+                        <button class="profile-btn" onclick="selectProfile(this, '전기설비전문')">
+                            <span class="profile-icon">⚡</span>
+                            <span class="profile-name">(주)밝은전기</span>
+                            <span class="profile-desc">전기설비 전문 | 3천만~10억</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 추가 검색 옵션 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>🔍 추가 키워드 (선택)</label>
+                        <input type="text" id="matchKeyword" placeholder="예: 아스팔트, 도로확장">
+                    </div>
+                    <div class="form-group">
+                        <label>📋 공고 유형</label>
+                        <select id="matchBidType">
+                            <option value="공사">공사</option>
+                            <option value="용역">용역</option>
+                            <option value="물품">물품</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="searchMatchingBids()">🎯 맞춤 공고 찾기</button>
+                    <button class="btn btn-secondary" onclick="resetMatch()">초기화</button>
+                </div>
+            </div>
+
+            <!-- 매칭 결과 -->
+            <div id="matchResult" class="card" style="display: none;">
+                <h2>📋 매칭 결과</h2>
+                <div id="matchSummary" class="match-summary"></div>
+                <div id="matchList" class="match-list"></div>
+            </div>
+
+            <!-- N2B 분석 -->
+            <div id="matchN2B" class="card" style="display: none;">
+                <div class="n2b-result"></div>
+            </div>
+
+            <!-- 로딩 -->
+            <div id="matchLoading" class="loading">
+                <div class="spinner"></div>
+                <p>맞춤 공고를 찾고 있습니다...</p>
             </div>
         </section>
 
@@ -667,6 +879,7 @@
         
         // 상태
         let selectedWorkType = '도로';
+        let selectedProfile = '도로포장전문';
 
         // 섹션 전환
         function showSection(sectionId, btn) {
@@ -679,12 +892,135 @@
             } else {
                 document.querySelectorAll('nav button').forEach(b => {
                     if (b.textContent.includes(sectionId === 'home' ? '홈' : 
+                        sectionId === 'match' ? '매칭' :
                         sectionId === 'cost' ? '원가' : 
                         sectionId === 'decision' ? '판정' : '단가')) {
                         b.classList.add('active');
                     }
                 });
             }
+        }
+
+        // 프로필 선택
+        function selectProfile(btn, profile) {
+            document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedProfile = profile;
+        }
+
+        // 공고 매칭 검색
+        async function searchMatchingBids() {
+            const keyword = document.getElementById('matchKeyword').value;
+            const bidType = document.getElementById('matchBidType').value;
+
+            document.getElementById('matchLoading').classList.add('show');
+            document.getElementById('matchResult').style.display = 'none';
+            document.getElementById('matchN2B').style.display = 'none';
+
+            try {
+                const url = `${API_BASE}/api/quick-match/${encodeURIComponent(selectedProfile)}?keyword=${encodeURIComponent(keyword)}&bid_type=${encodeURIComponent(bidType)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    displayMatchResult(data);
+                } else {
+                    alert('매칭 실패: ' + (data.detail || '오류 발생'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('서버 연결 오류');
+            } finally {
+                document.getElementById('matchLoading').classList.remove('show');
+            }
+        }
+
+        // 매칭 결과 표시
+        function displayMatchResult(data) {
+            // 요약
+            document.getElementById('matchSummary').innerHTML = `
+                <div class="match-stat">
+                    <div class="value">${data.total_found}</div>
+                    <div class="label">전체 공고</div>
+                </div>
+                <div class="match-stat">
+                    <div class="value">${data.matched_count}</div>
+                    <div class="label">매칭 공고</div>
+                </div>
+                <div class="match-stat">
+                    <div class="value">${Math.round(data.matched_count / Math.max(data.total_found, 1) * 100)}%</div>
+                    <div class="label">매칭률</div>
+                </div>
+            `;
+
+            // 공고 목록
+            const listHtml = data.matched.map(bid => {
+                const score = bid.match_score || 0;
+                const scoreClass = score >= 50 ? 'high' : score >= 30 ? 'medium' : 'low';
+                const price = bid.base_price || bid.estimated_price || 0;
+                const priceFormatted = price ? parseInt(price).toLocaleString() + '원' : '미정';
+                
+                const reasons = (bid.match_reasons || []).map(r => 
+                    `<span class="match-reason">${r}</span>`
+                ).join('');
+
+                return `
+                    <div class="match-item">
+                        <div class="match-item-header">
+                            <div class="match-item-title">${bid.bid_name || '공고명 없음'}</div>
+                            <span class="match-score ${scoreClass}">${score}점</span>
+                        </div>
+                        <div class="match-item-info">
+                            <div>🏢 ${bid.agency || '-'}</div>
+                            <div>💰 ${priceFormatted}</div>
+                            <div>📅 마감: ${bid.deadline ? bid.deadline.substring(0, 10) : '-'}</div>
+                            <div>📋 ${bid.bid_method || '-'}</div>
+                        </div>
+                        <div class="match-reasons">${reasons}</div>
+                        <div class="match-item-actions">
+                            <button class="btn btn-secondary" onclick="copyToCost(${price})">📊 원가분석</button>
+                            ${bid.url ? `<button class="btn btn-primary" onclick="window.open('${bid.url}', '_blank')">🔗 상세보기</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('matchList').innerHTML = listHtml || '<p style="text-align:center; color: var(--text-muted);">매칭된 공고가 없습니다.</p>';
+            document.getElementById('matchResult').style.display = 'block';
+
+            // N2B 분석
+            if (data.n2b) {
+                document.getElementById('matchN2B').innerHTML = `
+                    <div class="n2b-result">
+                        <div class="n2b-item n2b-not">
+                            <strong>Not:</strong> ${data.n2b.not}
+                        </div>
+                        <div class="n2b-item n2b-but">
+                            <strong>But:</strong> ${data.n2b.but}
+                        </div>
+                        <div class="n2b-item n2b-because">
+                            <strong>Because:</strong> ${data.n2b.because}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('matchN2B').style.display = 'block';
+            }
+        }
+
+        // 원가분석으로 복사
+        function copyToCost(price) {
+            if (price > 0) {
+                document.getElementById('basePrice').value = parseInt(price).toLocaleString();
+                showSection('cost');
+            }
+        }
+
+        // 매칭 초기화
+        function resetMatch() {
+            document.getElementById('matchKeyword').value = '';
+            document.getElementById('matchBidType').value = '공사';
+            document.getElementById('matchResult').style.display = 'none';
+            document.getElementById('matchN2B').style.display = 'none';
         }
 
         // 공종 선택
