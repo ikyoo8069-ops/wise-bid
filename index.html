@@ -630,17 +630,17 @@
                 <div class="form-group">
                     <label>🏢 샘플 회사 선택</label>
                     <div class="profile-grid">
-                        <button class="profile-btn selected" onclick="selectProfile(this, '도로포장전문')">
+                        <button class="profile-btn selected" onclick="selectProfile(this, 'road')">
                             <span class="profile-icon">🛣️</span>
                             <span class="profile-name">(주)한길도로</span>
                             <span class="profile-desc">도로포장 전문 | 5천만~20억</span>
                         </button>
-                        <button class="profile-btn" onclick="selectProfile(this, '종합건설중견')">
+                        <button class="profile-btn" onclick="selectProfile(this, 'general')">
                             <span class="profile-icon">🏗️</span>
                             <span class="profile-name">대한종합건설(주)</span>
                             <span class="profile-desc">종합건설 | 5억~500억</span>
                         </button>
-                        <button class="profile-btn" onclick="selectProfile(this, '전기설비전문')">
+                        <button class="profile-btn" onclick="selectProfile(this, 'electric')">
                             <span class="profile-icon">⚡</span>
                             <span class="profile-name">(주)밝은전기</span>
                             <span class="profile-desc">전기설비 전문 | 3천만~10억</span>
@@ -879,7 +879,7 @@
         
         // 상태
         let selectedWorkType = '도로';
-        let selectedProfile = '도로포장전문';
+        let selectedProfile = 'road';
 
         // 섹션 전환
         function showSection(sectionId, btn) {
