@@ -1,1199 +1,1147 @@
-# ============================================
-# 슬기로운 기업경영 - Backend v2.5
-# Bizinfo + K-Startup + Claude API 연동
-# + 제안서/PPT + 진흥원 + 일일사용제한
-# + 조달청 입찰/낙찰/가격 API (wise-bid)
-# + 입찰공고 N2B 매칭 기능
-# ============================================
-
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
-import httpx
-import xml.etree.ElementTree as ET
-import anthropic
-import os
-import json
-import asyncio
-import re
-from datetime import date, datetime
-
-app = FastAPI(title="N2B Backend v2.5", description="기업마당 + K-Startup + Claude + 제안서 + 진흥원 + 조달청입찰 + 입찰매칭")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ============================================
-# API 키 (환경변수에서 읽기)
-# ============================================
-BIZINFO_API_KEY = os.getenv("BIZINFO_API_KEY", "f41G7V")
-KSTARTUP_API_KEY = os.getenv("KSTARTUP_API_KEY", "47bd938c975a8989c5561a813fe66fcd68b76bfc4b4d54ca33345923b5b51897")
-PUBLIC_DATA_API_KEY = os.getenv("PUBLIC_DATA_API_KEY", "47bd938c975a8989c5561a813fe66fcd68b76bfc4b4d54ca33345923b5b51897")
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
-PREMIUM_KEY = os.getenv("PREMIUM_KEY", "wise2025")
-
-# ============================================
-# 일일 사용 제한 시스템
-# ============================================
-LIMITS = {
-    "biz": {"normal": 10, "premium": 200},
-    "proposal": {"normal": 10, "premium": 200},
-    "agency": {"normal": 100},
-    "bid": {"normal": 10, "premium": 200}
-}
-
-daily_usage: dict = {}
-
-
-def get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
-def check_rate_limit(ip: str, app_type: str, is_premium: bool = False) -> dict:
-    today = str(date.today())
-    
-    if today not in daily_usage:
-        daily_usage.clear()
-        daily_usage[today] = {}
-    
-    if ip not in daily_usage[today]:
-        daily_usage[today][ip] = {"biz": 0, "proposal": 0, "agency": 0, "bid": 0}
-    
-    usage = daily_usage[today][ip]
-    current = usage.get(app_type, 0)
-    
-    if app_type in ("biz", "proposal", "bid"):
-        limit = LIMITS[app_type]["premium"] if is_premium else LIMITS[app_type]["normal"]
-    else:
-        limit = LIMITS["agency"]["normal"]
-    
-    remaining = limit - current
-    
-    if remaining <= 0:
-        tier = "프리미엄" if is_premium else "일반"
-        raise HTTPException(
-            status_code=429,
-            detail=f"일일 사용 한도({limit}회)를 초과했습니다. ({tier})"
-        )
-    
-    usage[app_type] = current + 1
-    return {"used": current + 1, "limit": limit, "remaining": remaining - 1}
-
-# ============================================
-# 요청 모델
-# ============================================
-class AnalyzeRequest(BaseModel):
-    worry: str
-    region: str = "전체"
-
-class MatchRequest(BaseModel):
-    n2b_not: str
-    n2b_but: str
-    n2b_because: str
-    keywords: list[str]
-    region: str = "전체"
-
-class ProposalRequest(BaseModel):
-    company_info: str
-    n2b_not: str
-    n2b_but: str
-    n2b_because: str
-    program_name: str
-    program_description: str
-    program_budget: str
-
-class PptRequest(BaseModel):
-    company_info: str
-    n2b_not: str
-    n2b_but: str
-    n2b_because: str
-    program_name: str
-    program_description: str
-    program_budget: str
-
-class AgencyAnalyzeRequest(BaseModel):
-    worry: str
-
-class AgencyDeepDiveRequest(BaseModel):
-    previous_but: str
-    messages: list = []
-
-# 조달청 입찰 관련 모델
-class BidSearchRequest(BaseModel):
-    keyword: str
-    bid_type: str = "물품"
-    count: int = 20
-
-class BidPriceAnalyzeRequest(BaseModel):
-    bid_name: str
-    estimated_price: int
-    our_cost: int
-    bid_type: str = "물품"
-    n2b_not: str = ""
-    n2b_but: str = ""
-    n2b_because: str = ""
-
-class BidDecisionRequest(BaseModel):
-    bid_name: str
-    estimated_price: int
-    our_cost: int
-    pros: str
-    cons: str
-
-# 입찰공고 매칭용 모델
-class BidAnalyzeNeedsRequest(BaseModel):
-    company_info: str  # 회사 역량, 관심분야
-    preferred_type: str = "전체"  # 물품, 공사, 용역, 외자, 전체
-    budget_range: str = ""  # 예: "1억~5억"
-
-class BidMatchRequest(BaseModel):
-    n2b_not: str
-    n2b_but: str
-    n2b_because: str
-    keywords: list[str]
-    preferred_type: str = "전체"
-
-# ============================================
-# 기업마당 API
-# ============================================
-async def fetch_bizinfo_programs(keyword: Optional[str] = None, count: int = 100) -> list:
-    url = "https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do"
-    params = {
-        "crtfcKey": BIZINFO_API_KEY,
-        "dataType": "xml",
-        "searchCnt": count,
-    }
-    if keyword:
-        params["searchKind"] = keyword
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            root = ET.fromstring(response.text)
-            programs = []
-            for item in root.findall(".//item"):
-                pblanc_id = item.findtext("pblancId", "")
-                program = {
-                    "id": pblanc_id,
-                    "name": item.findtext("pblancNm", ""),
-                    "agency": item.findtext("jrsdInsttNm", ""),
-                    "target": item.findtext("trgetNm", ""),
-                    "period": item.findtext("reqstBeginEndDe", ""),
-                    "support_content": item.findtext("sprtCn", ""),
-                    "url": f"https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/view.do?pblancId={pblanc_id}" if pblanc_id else "https://www.bizinfo.go.kr",
-                    "source": "기업마당"
-                }
-                programs.append(program)
-            return programs
-    except Exception as e:
-        print(f"[기업마당 오류] {e}")
-        return []
-
-# ============================================
-# K-Startup API
-# ============================================
-async def fetch_kstartup_programs(keyword: Optional[str] = None, per_page: int = 100) -> list:
-    url = "https://apis.data.go.kr/B552735/kisedKstartupService01/getAnnouncementInformation01"
-    params = {
-        "ServiceKey": KSTARTUP_API_KEY,
-        "page": 1,
-        "perPage": per_page,
-        "returnType": "json"
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            items = data.get("data", [])
-            programs = []
-            for item in items:
-                program = {
-                    "id": item.get("PBLANC_ID", ""),
-                    "name": item.get("PBLANC_NM", ""),
-                    "agency": item.get("DEPARTMENT_NM", ""),
-                    "target": item.get("TRGET_NM", ""),
-                    "period": f"{item.get('RCPT_BGNG_DT', '')} ~ {item.get('RCPT_END_DT', '')}",
-                    "support_content": item.get("SPRT_CN", ""),
-                    "url": item.get("DETAIL_PAGE_URL", "https://www.k-startup.go.kr"),
-                    "source": "K-Startup"
-                }
-                programs.append(program)
-            return programs
-    except Exception as e:
-        print(f"[K-Startup 오류] {e}")
-        return []
-
-# ============================================
-# 조달청 API - 입찰공고 조회
-# ============================================
-async def fetch_bid_announcements(keyword: str, bid_type: str = "물품", count: int = 20) -> list:
-    type_endpoints = {
-        "물품": "getBidPblancListInfoThngPPSSrch",
-        "공사": "getBidPblancListInfoCnstwkPPSSrch", 
-        "용역": "getBidPblancListInfoServcPPSSrch",
-        "외자": "getBidPblancListInfoFrgcptPPSSrch"
-    }
-    
-    endpoint = type_endpoints.get(bid_type, "getBidPblancListInfoThngPPSSrch")
-    # 올바른 End Point 사용
-    url = f"https://apis.data.go.kr/1230000/ad/BidPublicInfoService/{endpoint}"
-    
-    # 검색 기간: 30일 전부터 오늘까지
-    from datetime import timedelta
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=30)
-    
-    params = {
-        "ServiceKey": PUBLIC_DATA_API_KEY,
-        "pageNo": 1,
-        "numOfRows": count,
-        "type": "json",
-        "inqryDiv": "1",  # 필수: 조회구분 (1=공고명)
-        "inqryBgnDt": start_date.strftime("%Y%m%d") + "0000",
-        "inqryEndDt": end_date.strftime("%Y%m%d") + "2359"
-    }
-    
-    # 키워드가 있으면 추가
-    if keyword and keyword.strip():
-        params["bidNm"] = keyword
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            items = data.get("response", {}).get("body", {}).get("items", [])
-            
-            # items가 없거나 빈 경우
-            if not items:
-                return []
-            
-            # items가 딕셔너리인 경우 (단일 결과)
-            if isinstance(items, dict):
-                items = [items]
-            
-            # items가 리스트 안에 딕셔너리로 감싸져 있는 경우
-            if isinstance(items, list) and len(items) > 0 and isinstance(items[0], dict) and "item" in items[0]:
-                items = items[0].get("item", [])
-                if isinstance(items, dict):
-                    items = [items]
-            
-            bids = []
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                bid = {
-                    "bid_no": item.get("bidNtceNo", ""),
-                    "bid_name": item.get("bidNtceNm", ""),
-                    "agency": item.get("ntceInsttNm", ""),
-                    "demand_agency": item.get("dminsttNm", ""),
-                    "estimated_price": item.get("presmptPrce", 0),
-                    "base_price": item.get("asignBdgtAmt", 0),
-                    "bid_method": item.get("bidMethdNm", ""),
-                    "contract_method": item.get("cntrctCnclsMthdNm", ""),
-                    "deadline": item.get("bidClseDt", ""),
-                    "open_date": item.get("opengDt", ""),
-                    "url": item.get("bidNtceDtlUrl", ""),
-                    "bid_type": bid_type
-                }
-                bids.append(bid)
-            return bids
-    except Exception as e:
-        print(f"[조달청 입찰공고 오류] {e}")
-        return []
-
-# ============================================
-# 조달청 API - 낙찰정보 조회
-# ============================================
-async def fetch_winning_bids(keyword: str, bid_type: str = "물품", count: int = 20) -> list:
-    type_endpoints = {
-        "물품": "getOpengResultListInfoThngPPSSrch",
-        "공사": "getOpengResultListInfoCnstwkPPSSrch",
-        "용역": "getOpengResultListInfoServcPPSSrch",
-        "외자": "getOpengResultListInfoFrgcptPPSSrch"
-    }
-    
-    endpoint = type_endpoints.get(bid_type, "getOpengResultListInfoThngPPSSrch")
-    url = f"https://apis.data.go.kr/1230000/ScsbidInfoService/{endpoint}"
-    
-    params = {
-        "ServiceKey": PUBLIC_DATA_API_KEY,
-        "pageNo": 1,
-        "numOfRows": count,
-        "type": "json",
-        "bidNm": keyword,
-        "inqryDiv": "1"
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            items = data.get("response", {}).get("body", {}).get("items", [])
-            if not items:
-                return []
-            results = []
-            for item in items:
-                estimated = float(item.get("presmptPrce", 0) or 0)
-                winning = float(item.get("sucsfbidAmt", 0) or 0)
-                rate = (winning / estimated * 100) if estimated > 0 else 0
-                result = {
-                    "bid_no": item.get("bidNtceNo", ""),
-                    "bid_name": item.get("bidNtceNm", ""),
-                    "agency": item.get("ntceInsttNm", ""),
-                    "estimated_price": estimated,
-                    "winning_price": winning,
-                    "winning_rate": round(rate, 2),
-                    "winner": item.get("sucsfbidCorpNm", ""),
-                    "open_date": item.get("opengDt", ""),
-                    "participant_count": item.get("prtcptCnum", 0)
-                }
-                results.append(result)
-            return results
-    except Exception as e:
-        print(f"[조달청 낙찰정보 오류] {e}")
-        return []
-
-# ============================================
-# 조달청 API - 시장가격 조회
-# ============================================
-async def fetch_market_prices(keyword: str, price_type: str = "자재") -> list:
-    type_endpoints = {
-        "자재": "getStdMktPrcList",
-        "시공": "getMrktStnPrcList"
-    }
-    
-    endpoint = type_endpoints.get(price_type, "getStdMktPrcList")
-    url = f"https://apis.data.go.kr/1230000/PriceInfoService/{endpoint}"
-    
-    params = {
-        "ServiceKey": PUBLIC_DATA_API_KEY,
-        "pageNo": 1,
-        "numOfRows": 20,
-        "type": "json",
-        "prdctNm": keyword
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            items = data.get("response", {}).get("body", {}).get("items", [])
-            if not items:
-                return []
-            prices = []
-            for item in items:
-                price = {
-                    "product_name": item.get("prdctNm", ""),
-                    "spec": item.get("sstdNm", ""),
-                    "unit": item.get("untNm", ""),
-                    "price": item.get("bsePrc", 0),
-                    "effective_date": item.get("aplcDt", "")
-                }
-                prices.append(price)
-            return prices
-    except Exception as e:
-        print(f"[조달청 가격정보 오류] {e}")
-        return []
-
-# ============================================
-# Claude 호출 함수들
-# ============================================
-async def analyze_with_claude(worry: str) -> dict:
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2048,
-        messages=[{
-            "role": "user",
-            "content": f"""기업 대표의 고민: {worry}
-
-이 고민을 N2B(NOT-BUT-BECAUSE) 프레임워크로 분석하고, 정부지원사업 검색 키워드를 추출해주세요.
-
-반드시 아래 JSON 형식으로만 답변하세요:
-{{
-  "not": "핵심 문제가 ~이 아니라",
-  "but": "진짜 문제는 ~이다",
-  "because": "왜냐하면 ~때문이다",
-  "keywords": ["키워드1", "키워드2", "키워드3"]
-}}"""
-        }]
-    )
-    text = response.content[0].text
-    json_match = re.search(r'\{[\s\S]*\}', text)
-    if json_match:
-        return json.loads(json_match.group())
-    return {"not": "분석 실패", "but": "", "because": "", "keywords": []}
-
-
-async def score_programs_with_claude(n2b: dict, programs: list, region: str) -> list:
-    if not programs:
-        return []
-    candidates = programs[:30]
-    program_list = "\n".join([
-        f"{i+1}. [{p['source']}] {p['name']} | {p['agency']} | {p['period']}"
-        for i, p in enumerate(candidates)
-    ])
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4096,
-        messages=[{
-            "role": "user",
-            "content": f"""N2B 분석 결과를 바탕으로 아래 실제 정부지원사업 중 가장 적합한 5개를 선택하고 매칭 점수를 매겨주세요.
-
-N2B 분석:
-- NOT: {n2b.get('not', '')}
-- BUT: {n2b.get('but', '')}
-- BECAUSE: {n2b.get('because', '')}
-- 키워드: {', '.join(n2b.get('keywords', []))}
-- 지역: {region}
-
-실제 공고 목록:
-{program_list}
-
-반드시 아래 JSON 배열 형식으로만 답변하세요:
-[
-  {{"index": 1, "fit_score": 92, "reason": "추천 이유"}},
-  {{"index": 3, "fit_score": 87, "reason": "추천 이유"}}
-]"""
-        }]
-    )
-    text = response.content[0].text
-    json_match = re.search(r'\[[\s\S]*\]', text)
-    results = []
-    if json_match:
-        try:
-            scored = json.loads(json_match.group())
-            for item in scored:
-                idx = item.get("index", 1) - 1
-                if 0 <= idx < len(candidates):
-                    prog = candidates[idx].copy()
-                    prog["fit_score"] = item.get("fit_score", 80)
-                    prog["reason"] = item.get("reason", "")
-                    results.append(prog)
-        except:
-            pass
-    return results
-
-
-async def generate_proposal_with_claude(req: ProposalRequest) -> str:
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4096,
-        messages=[{
-            "role": "user",
-            "content": f"""다음 정보를 바탕으로 정부지원사업 제안서 초안을 작성해주세요.
-
-기업 정보:
-{req.company_info}
-
-N2B 분석 결과:
-- NOT: {req.n2b_not}
-- BUT: {req.n2b_but}
-- BECAUSE: {req.n2b_because}
-
-선택한 지원사업:
-- 사업명: {req.program_name}
-- 설명: {req.program_description}
-- 지원 규모: {req.program_budget}
-
-제안서는 다음 섹션으로 구성해주세요:
-1. 사업 개요
-2. 추진 배경 및 필요성 (N2B 분석 기반)
-3. 사업 목표
-4. 추진 전략 및 방법
-5. 기대 효과"""
-        }]
-    )
-    return response.content[0].text
-
-
-async def generate_ppt_with_claude(req: PptRequest) -> str:
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4096,
-        messages=[{
-            "role": "user",
-            "content": f"""다음 정보를 바탕으로 발표자료(PPT) 구성안을 작성해주세요.
-
-기업 정보:
-{req.company_info}
-
-N2B 분석 결과:
-- NOT: {req.n2b_not}
-- BUT: {req.n2b_but}
-- BECAUSE: {req.n2b_because}
-
-선택한 지원사업:
-- 사업명: {req.program_name}
-- 설명: {req.program_description}
-- 지원 규모: {req.program_budget}
-
-발표자료는 10-15장 분량으로 구성해주세요."""
-        }]
-    )
-    return response.content[0].text
-
-
-# ============================================
-# wise-agency용 Claude 함수들
-# ============================================
-AGENCY_SYSTEM_PROMPT = """당신은 '슬기로운 진흥원생활' 앱의 N2B 코치입니다.
-
-성남산업진흥원 직원의 고민을 듣고 N2B(NOT-BUT-BECAUSE) 프레임워크로 분석해주세요.
-
-## N2B 프레임워크
-- NOT (N): 문제가 ~이 아니라 (표면적/잘못된 원인 부정)
-- BUT (B): ~이다 (진짜 원인 제시)
-- BECAUSE (C): 왜냐하면 ~때문이다 (근거/논리적 설명)
-
-## 응답 형식 (반드시 JSON으로)
-{
-  "n2b": {
-    "not": "~이 아니라",
-    "but": "~이다", 
-    "because": "~때문이다"
-  },
-  "suggestion": "[목표]를 위해서는 [행동]을 해야 합니다.",
-  "nextAction": "~해드리겠습니다"
-}"""
-
-
-async def agency_analyze_with_claude(worry: str) -> dict:
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2048,
-        system=AGENCY_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": worry}]
-    )
-    text = response.content[0].text
-    json_match = re.search(r'\{[\s\S]*\}', text)
-    if json_match:
-        return json.loads(json_match.group())
-    return {
-        "n2b": {"not": "분석 중", "but": "문제의 본질을 파악하는 중입니다", "because": "조금 더 구체적인 상황을 알려주시면 정확한 분석이 가능합니다"},
-        "suggestion": text
-    }
-
-
-async def agency_deepdive_with_claude(previous_but: str, messages: list) -> dict:
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    deep_prompt = f"""이전 분석에서 "{previous_but}"라고 했습니다.
-이것이 왜 진짜 원인인지 더 깊이 분석해주세요.
-
-반드시 아래 JSON 형식으로만 답변해주세요:
-{{
-  "n2b": {{
-    "not": "표면적 원인이 아니라",
-    "but": "더 근본적인 원인이다", 
-    "because": "왜냐하면 ~때문이다"
-  }},
-  "suggestion": "구체적 제안",
-  "nextAction": "다음 행동을 ~해드리겠습니다"
-}}"""
-    api_messages = messages + [{"role": "user", "content": deep_prompt}]
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2048,
-        system="당신은 N2B 분석 전문가입니다. 반드시 지정된 JSON 형식으로만 답변하세요.",
-        messages=api_messages
-    )
-    text = response.content[0].text
-    json_match = re.search(r'\{[\s\S]*\}', text)
-    if json_match:
-        return json.loads(json_match.group())
-    return {
-        "n2b": {"not": "분석 중", "but": "더 깊은 분석이 필요합니다", "because": "추가 정보가 필요합니다"},
-        "suggestion": text
-    }
-
-
-# ============================================
-# wise-bid용 Claude 함수들
-# ============================================
-async def analyze_bid_price_with_claude(req: BidPriceAnalyzeRequest, winning_bids: list) -> dict:
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    
-    if winning_bids:
-        rates = [b["winning_rate"] for b in winning_bids if b["winning_rate"] > 0]
-        avg_rate = sum(rates) / len(rates) if rates else 0
-        min_rate = min(rates) if rates else 0
-        max_rate = max(rates) if rates else 0
-        winning_info = f"""
-유사 입찰 낙찰률 통계 (최근 {len(winning_bids)}건):
-- 평균 낙찰률: {avg_rate:.2f}%
-- 최저 낙찰률: {min_rate:.2f}%
-- 최고 낙찰률: {max_rate:.2f}%"""
-    else:
-        avg_rate = 88.0
-        winning_info = "유사 입찰 데이터가 없어 일반적인 낙찰률(88%)을 기준으로 분석합니다."
-    
-    bubble_rate = ((req.estimated_price - req.our_cost) / req.estimated_price * 100) if req.estimated_price > 0 else 0
-    
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2048,
-        messages=[{
-            "role": "user",
-            "content": f"""입찰 가격 N2B 분석을 해주세요.
-
-입찰 정보:
-- 공고명: {req.bid_name}
-- 입찰 유형: {req.bid_type}
-- 예정가격: {req.estimated_price:,}원
-- 우리 원가: {req.our_cost:,}원
-- 거품률: {bubble_rate:.1f}%
-{winning_info}
-
-사용자 입력 N2B:
-- NOT: {req.n2b_not or '(미입력)'}
-- BUT: {req.n2b_but or '(미입력)'}
-- BECAUSE: {req.n2b_because or '(미입력)'}
-
-다음 JSON 형식으로 분석 결과를 제공해주세요:
-{{
-  "n2b": {{
-    "not": "이 예정가격은 ~이 아니다 (거품 분석)",
-    "but": "적정 가격은 ~이다",
-    "because": "왜냐하면 ~때문이다"
-  }},
-  "analysis": {{
-    "bubble_rate": {bubble_rate:.1f},
-    "bubble_analysis": "거품 분석 설명",
-    "recommended_min": 추천최저투찰가숫자,
-    "recommended_max": 추천최고투찰가숫자,
-    "recommended_rate": 추천투찰률숫자,
-    "strategy": "투찰 전략 설명"
-  }},
-  "risks": ["리스크1", "리스크2"],
-  "suggestions": ["제안1", "제안2"]
-}}"""
-        }]
-    )
-    text = response.content[0].text
-    json_match = re.search(r'\{[\s\S]*\}', text)
-    if json_match:
-        try:
-            return json.loads(json_match.group())
-        except:
-            pass
-    
-    recommended_rate = avg_rate if avg_rate > 0 else 88.0
-    return {
-        "n2b": {
-            "not": f"예정가격 {req.estimated_price:,}원이 적정가격이 아니다",
-            "but": f"원가 기반 적정가격은 {int(req.our_cost * 1.1):,}원이다",
-            "because": f"거품률 {bubble_rate:.1f}%를 고려할 때 원가+10% 수준이 적정하다"
-        },
-        "analysis": {
-            "bubble_rate": bubble_rate,
-            "bubble_analysis": f"예정가격 대비 {bubble_rate:.1f}%의 거품이 존재합니다.",
-            "recommended_min": int(req.estimated_price * 0.8745),
-            "recommended_max": int(req.estimated_price * recommended_rate / 100),
-            "recommended_rate": recommended_rate,
-            "strategy": f"유사 입찰 평균 낙찰률 {recommended_rate:.1f}% 기준으로 투찰 권장"
-        },
-        "risks": ["경쟁 과열 시 낙찰률 하락 가능", "원가 상승 리스크"],
-        "suggestions": ["경쟁업체 동향 파악", "원가 재검토"]
-    }
-
-
-async def analyze_bid_decision_with_claude(req: BidDecisionRequest) -> dict:
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    profit_rate = ((req.estimated_price - req.our_cost) / req.our_cost * 100) if req.our_cost > 0 else 0
-    
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2048,
-        messages=[{
-            "role": "user",
-            "content": f"""입찰 참여 의사결정을 N2B 프레임워크로 분석해주세요.
-
-입찰 정보:
-- 공고명: {req.bid_name}
-- 예정가격: {req.estimated_price:,}원
-- 우리 원가: {req.our_cost:,}원
-- 예상 수익률: {profit_rate:.1f}%
-
-참여 이유: {req.pros}
-불참 이유: {req.cons}
-
-다음 JSON 형식으로 의사결정 분석을 제공해주세요:
-{{
-  "decision": "참여" 또는 "불참" 또는 "조건부 참여",
-  "confidence": 확신도0에서100,
-  "n2b": {{
-    "not": "단순히 ~때문에 참여/불참하는 것이 아니다",
-    "but": "진짜 판단 기준은 ~이다",
-    "because": "왜냐하면 ~때문이다"
-  }},
-  "key_factors": ["핵심 판단 요소1", "핵심 판단 요소2"],
-  "conditions": ["이 조건이면 참여", "이 조건이면 불참"],
-  "action_items": ["실행 항목1", "실행 항목2"]
-}}"""
-        }]
-    )
-    text = response.content[0].text
-    json_match = re.search(r'\{[\s\S]*\}', text)
-    if json_match:
-        try:
-            return json.loads(json_match.group())
-        except:
-            pass
-    
-    decision = "참여" if profit_rate > 10 else "조건부 참여" if profit_rate > 5 else "불참"
-    return {
-        "decision": decision,
-        "confidence": 70,
-        "n2b": {
-            "not": "단순히 수익률만 보고 판단하는 것이 아니다",
-            "but": f"종합적으로 {decision}이 적절하다",
-            "because": f"예상 수익률 {profit_rate:.1f}%와 리스크를 고려했기 때문이다"
-        },
-        "key_factors": ["수익률", "경쟁 강도", "리소스 가용성"],
-        "conditions": ["수익률 10% 이상 확보 시 참여"],
-        "action_items": ["상세 원가 검토", "경쟁업체 분석"]
-    }
-
-
-# ============================================
-# wise-bid 입찰공고 매칭용 Claude 함수들
-# ============================================
-async def analyze_bid_needs_with_claude(company_info: str, preferred_type: str, budget_range: str) -> dict:
-    """회사 역량/관심분야를 N2B로 분석하고 입찰 검색 키워드 추출"""
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2048,
-        messages=[{
-            "role": "user",
-            "content": f"""다음 회사 정보를 바탕으로 N2B 분석과 적합한 입찰공고 검색 키워드를 추출해주세요.
-
-회사 역량/관심분야:
-{company_info}
-
-선호 입찰 유형: {preferred_type}
-선호 예산 규모: {budget_range or '제한 없음'}
-
-N2B 관점에서 분석해주세요:
-- NOT: 이 회사가 피해야 할 입찰 유형 (역량과 맞지 않는 것)
-- BUT: 이 회사에 적합한 입찰 유형 (강점을 살릴 수 있는 것)
-- BECAUSE: 그 이유 (핵심 역량, 실적, 차별화 요소)
-
-반드시 아래 JSON 형식으로만 답변하세요:
-{{
-  "n2b": {{
-    "not": "이 회사는 ~한 입찰은 피해야 한다",
-    "but": "~한 입찰에 집중해야 한다",
-    "because": "왜냐하면 ~한 강점이 있기 때문이다"
-  }},
-  "keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"],
-  "recommended_types": ["물품", "용역"],
-  "strengths": ["강점1", "강점2"],
-  "advice": "입찰 전략 조언"
-}}"""
-        }]
-    )
-    
-    text = response.content[0].text
-    json_match = re.search(r'\{[\s\S]*\}', text)
-    if json_match:
-        try:
-            return json.loads(json_match.group())
-        except:
-            pass
-    return {
-        "n2b": {"not": "분석 실패", "but": "", "because": ""},
-        "keywords": [],
-        "recommended_types": [preferred_type] if preferred_type != "전체" else ["물품", "공사", "용역"],
-        "strengths": [],
-        "advice": ""
-    }
-
-
-async def match_bids_with_claude(n2b: dict, bids: list, keywords: list) -> list:
-    """입찰공고 목록에서 적합한 공고를 선별하고 점수 매기기"""
-    if not bids:
-        return []
-    
-    candidates = bids[:30]
-    
-    def format_price(price):
-        try:
-            return f"{int(price):,}"
-        except:
-            return str(price)
-    
-    bid_list = "\n".join([
-        f"{i+1}. [{b['bid_type']}] {b['bid_name']} | {b['agency']} | 예정가: {format_price(b.get('estimated_price', 0))}원 | 마감: {b.get('deadline', '')}"
-        for i, b in enumerate(candidates)
-    ])
-    
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-    
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4096,
-        messages=[{
-            "role": "user",
-            "content": f"""N2B 분석 결과를 바탕으로 아래 입찰공고 중 가장 적합한 5개를 선택하고 매칭 점수를 매겨주세요.
-
-N2B 분석:
-- NOT: {n2b.get('not', '')}
-- BUT: {n2b.get('but', '')}
-- BECAUSE: {n2b.get('because', '')}
-- 검색 키워드: {', '.join(keywords)}
-
-입찰공고 목록:
-{bid_list}
-
-반드시 아래 JSON 배열 형식으로만 답변하세요. 번호는 위 목록의 번호입니다:
-[
-  {{"index": 1, "fit_score": 92, "reason": "추천 이유", "risk": "주의사항"}},
-  {{"index": 3, "fit_score": 87, "reason": "추천 이유", "risk": "주의사항"}}
-]"""
-        }]
-    )
-    
-    text = response.content[0].text
-    json_match = re.search(r'\[[\s\S]*\]', text)
-    
-    results = []
-    if json_match:
-        try:
-            scored = json.loads(json_match.group())
-            for item in scored:
-                idx = item.get("index", 1) - 1
-                if 0 <= idx < len(candidates):
-                    bid = candidates[idx].copy()
-                    bid["fit_score"] = item.get("fit_score", 80)
-                    bid["reason"] = item.get("reason", "")
-                    bid["risk"] = item.get("risk", "")
-                    results.append(bid)
-        except:
-            pass
-    
-    return results
-
-
-# ============================================
-# API 엔드포인트
-# ============================================
-
-@app.get("/")
-async def root():
-    return {"status": "ok", "version": "3.3", "message": "N2B Backend + price 포맷 수정"}
-
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-@app.post("/api/analyze")
-async def analyze(req: AnalyzeRequest, request: Request):
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "biz", is_premium)
-    try:
-        result = await analyze_with_claude(req.worry)
-        return {"success": True, "n2b": result, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/match")
-async def match(req: MatchRequest, request: Request):
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "biz", is_premium)
-    try:
-        keyword = req.keywords[0] if req.keywords else None
-        bizinfo_task = fetch_bizinfo_programs(keyword)
-        kstartup_task = fetch_kstartup_programs(keyword)
-        bizinfo_programs, kstartup_programs = await asyncio.gather(bizinfo_task, kstartup_task)
-        all_programs = bizinfo_programs + kstartup_programs
-        n2b = {"not": req.n2b_not, "but": req.n2b_but, "because": req.n2b_because, "keywords": req.keywords}
-        matched = await score_programs_with_claude(n2b, all_programs, req.region)
-        return {"success": True, "total_fetched": len(all_programs), "bizinfo_count": len(bizinfo_programs), "kstartup_count": len(kstartup_programs), "matched": matched, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/proposal")
-async def proposal(req: ProposalRequest, request: Request):
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "proposal", is_premium)
-    try:
-        text = await generate_proposal_with_claude(req)
-        return {"success": True, "content": text, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/ppt-outline")
-async def ppt_outline(req: PptRequest, request: Request):
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "proposal", is_premium)
-    try:
-        text = await generate_ppt_with_claude(req)
-        return {"success": True, "content": text, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/programs")
-async def get_programs(keyword: Optional[str] = None):
-    bizinfo = await fetch_bizinfo_programs(keyword)
-    kstartup = await fetch_kstartup_programs(keyword)
-    return {"bizinfo_count": len(bizinfo), "kstartup_count": len(kstartup), "total": len(bizinfo) + len(kstartup), "programs": bizinfo + kstartup}
-
-@app.post("/api/agency-analyze")
-async def agency_analyze(req: AgencyAnalyzeRequest, request: Request):
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    rate_info = check_rate_limit(ip, "agency")
-    try:
-        result = await agency_analyze_with_claude(req.worry)
-        return {"success": True, "result": result, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/agency-deepdive")
-async def agency_deepdive(req: AgencyDeepDiveRequest, request: Request):
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    rate_info = check_rate_limit(ip, "agency")
-    try:
-        result = await agency_deepdive_with_claude(req.previous_but, req.messages)
-        return {"success": True, "result": result, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# ============================================
-# wise-bid 전용 엔드포인트
-# ============================================
-
-@app.post("/api/bid-search")
-async def bid_search(req: BidSearchRequest, request: Request):
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "bid", is_premium)
-    try:
-        bids = await fetch_bid_announcements(req.keyword, req.bid_type, req.count)
-        return {"success": True, "count": len(bids), "bids": bids, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/bid-winning")
-async def bid_winning(req: BidSearchRequest, request: Request):
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "bid", is_premium)
-    try:
-        results = await fetch_winning_bids(req.keyword, req.bid_type, req.count)
-        rates = [r["winning_rate"] for r in results if r["winning_rate"] > 0]
-        stats = {"count": len(results), "avg_rate": round(sum(rates) / len(rates), 2) if rates else 0, "min_rate": min(rates) if rates else 0, "max_rate": max(rates) if rates else 0}
-        return {"success": True, "stats": stats, "results": results, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/bid-price-analyze")
-async def bid_price_analyze(req: BidPriceAnalyzeRequest, request: Request):
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "bid", is_premium)
-    try:
-        winning_bids = await fetch_winning_bids(req.bid_name, req.bid_type, 10)
-        result = await analyze_bid_price_with_claude(req, winning_bids)
-        return {"success": True, "result": result, "winning_bids_count": len(winning_bids), "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/bid-decision")
-async def bid_decision(req: BidDecisionRequest, request: Request):
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "bid", is_premium)
-    try:
-        result = await analyze_bid_decision_with_claude(req)
-        return {"success": True, "result": result, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# 입찰공고 매칭 엔드포인트
-@app.post("/api/bid-analyze-needs")
-async def bid_analyze_needs(req: BidAnalyzeNeedsRequest, request: Request):
-    """회사 역량/관심분야를 N2B로 분석하고 입찰 검색 키워드 추출"""
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "bid", is_premium)
-    try:
-        result = await analyze_bid_needs_with_claude(req.company_info, req.preferred_type, req.budget_range)
-        return {"success": True, "result": result, "usage": rate_info}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/bid-match")
-async def bid_match(req: BidMatchRequest, request: Request):
-    """N2B 분석 결과를 바탕으로 입찰공고 매칭"""
-    if not CLAUDE_API_KEY:
-        raise HTTPException(status_code=500, detail="CLAUDE_API_KEY가 설정되지 않았습니다")
-    ip = get_client_ip(request)
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    rate_info = check_rate_limit(ip, "bid", is_premium)
-    try:
-        # 키워드별로 입찰공고 검색
-        all_bids = []
-        bid_types = [req.preferred_type] if req.preferred_type != "전체" else ["물품", "공사", "용역"]
-        
-        for keyword in req.keywords[:3]:  # 최대 3개 키워드
-            for bid_type in bid_types:
-                bids = await fetch_bid_announcements(keyword, bid_type, 10)
-                all_bids.extend(bids)
-        
-        # 중복 제거
-        seen = set()
-        unique_bids = []
-        for bid in all_bids:
-            if bid["bid_no"] not in seen:
-                seen.add(bid["bid_no"])
-                unique_bids.append(bid)
-        
-        # AI 매칭
-        n2b = {"not": req.n2b_not, "but": req.n2b_but, "because": req.n2b_because}
-        matched = await match_bids_with_claude(n2b, unique_bids, req.keywords)
-        
-        return {
-            "success": True,
-            "total_fetched": len(unique_bids),
-            "matched": matched,
-            "usage": rate_info
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>슬기로운 입찰생활 v3 - N2B 원가분석</title>
+    <link href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a365d;
+            --primary-light: #2c5282;
+            --accent: #ed8936;
+            --accent-hover: #dd6b20;
+            --bg-main: #f7fafc;
+            --bg-card: #ffffff;
+            --text-main: #1a202c;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            --border: #e2e8f0;
+            --not-color: #e53e3e;
+            --but-color: #3182ce;
+            --because-color: #38a169;
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/market-price")
-async def market_price(keyword: str, price_type: str = "자재"):
-    try:
-        prices = await fetch_market_prices(keyword, price_type)
-        return {"success": True, "count": len(prices), "prices": prices}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
-# 테스트용 GET 엔드포인트
-@app.get("/api/bid-test")
-async def bid_test(keyword: str = "", bid_type: str = "공사", count: int = 10):
-    """브라우저에서 조달청 API 테스트용"""
-    try:
-        bids = await fetch_bid_announcements(keyword, bid_type, count)
-        return {"success": True, "count": len(bids), "keyword": keyword, "bid_type": bid_type, "bids": bids}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-# bid-match 디버깅용 GET 엔드포인트
-@app.get("/api/bid-match-test")
-async def bid_match_test(keyword: str = "도로", bid_type: str = "공사"):
-    """bid-match 디버깅용"""
-    try:
-        # 1. 입찰공고 검색
-        bids = await fetch_bid_announcements(keyword, bid_type, 10)
-        if not bids:
-            return {"step": "fetch", "success": False, "message": "공고 검색 결과 없음"}
-        
-        # 2. AI 매칭 (간단한 테스트용 N2B)
-        n2b = {
-            "not": "대규모 공사는 피해야 한다",
-            "but": "소규모 도로포장에 집중해야 한다",
-            "because": "경험과 장비가 있기 때문이다"
+        body {
+            font-family: 'Pretendard Variable', -apple-system, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.6;
         }
-        keywords = [keyword]
-        
-        matched = await match_bids_with_claude(n2b, bids, keywords)
-        
-        return {
-            "success": True,
-            "fetched_count": len(bids),
-            "matched_count": len(matched),
-            "matched": matched
+
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
         }
-    except Exception as e:
-        import traceback
-        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
 
-@app.get("/api/usage")
-async def get_usage(request: Request):
-    ip = get_client_ip(request)
-    today = str(date.today())
-    is_premium = request.headers.get("x-premium-key") == PREMIUM_KEY
-    usage = daily_usage.get(today, {}).get(ip, {"biz": 0, "proposal": 0, "agency": 0, "bid": 0})
-    biz_limit = LIMITS["biz"]["premium"] if is_premium else LIMITS["biz"]["normal"]
-    proposal_limit = LIMITS["proposal"]["premium"] if is_premium else LIMITS["proposal"]["normal"]
-    agency_limit = LIMITS["agency"]["normal"]
-    bid_limit = LIMITS["bid"]["premium"] if is_premium else LIMITS["bid"]["normal"]
-    return {
-        "date": today,
-        "biz": {"used": usage.get("biz", 0), "limit": biz_limit, "remaining": biz_limit - usage.get("biz", 0), "tier": "premium" if is_premium else "normal"},
-        "proposal": {"used": usage.get("proposal", 0), "limit": proposal_limit, "remaining": proposal_limit - usage.get("proposal", 0), "tier": "premium" if is_premium else "normal"},
-        "agency": {"used": usage.get("agency", 0), "limit": agency_limit, "remaining": agency_limit - usage.get("agency", 0)},
-        "bid": {"used": usage.get("bid", 0), "limit": bid_limit, "remaining": bid_limit - usage.get("bid", 0), "tier": "premium" if is_premium else "normal"}
-    }
+        header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+        header p { font-size: 1rem; opacity: 0.9; }
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=10000)
+        .n2b-badge { display: inline-flex; gap: 0.4rem; margin-top: 0.8rem; }
+        .n2b-badge span { padding: 0.2rem 0.6rem; border-radius: 15px; font-size: 0.8rem; font-weight: 600; }
+        .badge-not { background: var(--not-color); }
+        .badge-but { background: var(--but-color); }
+        .badge-because { background: var(--because-color); }
+
+        nav {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 0.5rem;
+            display: flex;
+            justify-content: center;
+            gap: 0.3rem;
+            flex-wrap: wrap;
+        }
+
+        nav button {
+            padding: 0.6rem 1rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        nav button:hover { background: var(--bg-main); }
+        nav button.active { background: var(--primary); color: white; }
+
+        main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+
+        .section { display: none; animation: fadeIn 0.3s ease; }
+        .section.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card > p { color: var(--text-muted); margin-bottom: 1.2rem; font-size: 0.95rem; }
+
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 0.4rem; }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus { outline: none; border-color: var(--primary); }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+        /* 슬라이더 스타일 */
+        .slider-group { margin-bottom: 1.5rem; }
+        .slider-group label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .slider-value {
+            background: var(--primary);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+
+        .btn {
+            padding: 0.9rem 1.8rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-2px); }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+
+        .btn-secondary { background: var(--bg-main); color: var(--text-main); border: 2px solid var(--border); }
+        .btn-secondary:hover { border-color: var(--primary); }
+
+        .btn-group { display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
+
+        /* 결과 박스 */
+        .result-box {
+            background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+            border: 2px solid var(--because-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        .result-box.show { display: block; animation: slideUp 0.4s ease; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-box h3 {
+            color: var(--because-color);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        /* 비용 테이블 */
+        .cost-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .cost-table th, .cost-table td {
+            padding: 0.8rem;
+            text-align: right;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .cost-table th { text-align: left; font-weight: 600; background: #f8fafc; }
+        .cost-table th:first-child { border-radius: 8px 0 0 0; }
+        .cost-table th:last-child { border-radius: 0 8px 0 0; }
+
+        .cost-table .total { font-weight: 700; background: #f0fff4; }
+        .cost-table .saving { color: var(--because-color); font-weight: 600; }
+
+        /* N2B 결과 */
+        .n2b-result {
+            background: white;
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin: 1rem 0;
+        }
+
+        .n2b-item {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 0.8rem;
+            align-items: flex-start;
+        }
+
+        .n2b-label {
+            min-width: 80px;
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+
+        .n2b-label.not { background: var(--not-color); }
+        .n2b-label.but { background: var(--but-color); }
+        .n2b-label.because { background: var(--because-color); }
+
+        .n2b-text { flex: 1; padding-top: 0.3rem; }
+
+        /* 판정 결과 */
+        .decision-result {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1rem 0;
+        }
+
+        .decision-result.positive { background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%); }
+        .decision-result.neutral { background: linear-gradient(135deg, #feebc8 0%, #fbd38d 100%); }
+        .decision-result.negative { background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%); }
+
+        .decision-score {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+        }
+
+        .decision-label {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .decision-desc { color: var(--text-secondary); }
+
+        /* 투찰 전략 */
+        .strategy-box {
+            background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+            border: 2px solid var(--but-color);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin: 1rem 0;
+        }
+
+        .strategy-box h4 { color: var(--but-color); margin-bottom: 0.8rem; }
+
+        .strategy-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .strategy-item {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .strategy-item .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .strategy-item .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* 홈 그리드 */
+        .home-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .home-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid var(--border);
+        }
+
+        .home-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+            box-shadow: var(--shadow);
+        }
+
+        .home-card .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .home-card h3 { font-size: 1.1rem; color: var(--primary); margin-bottom: 0.3rem; }
+        .home-card p { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* 로딩 */
+        .loading { display: none; text-align: center; padding: 2rem; }
+        .loading.show { display: block; }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 공종 카드 */
+        .work-type-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .work-type-btn {
+            padding: 0.8rem 0.5rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            font-family: inherit;
+            font-size: 0.85rem;
+        }
+
+        .work-type-btn:hover { border-color: var(--primary); }
+        .work-type-btn.selected {
+            border-color: var(--accent);
+            background: #fff5eb;
+        }
+
+        .work-type-btn .emoji { font-size: 1.5rem; display: block; margin-bottom: 0.3rem; }
+
+        /* 인포박스 */
+        .info-box {
+            background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%);
+            border-left: 4px solid var(--but-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-box h4 { color: var(--but-color); margin-bottom: 0.5rem; }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.5rem; }
+            main { padding: 1rem; }
+            .form-row, .form-row-3 { grid-template-columns: 1fr; }
+            .strategy-grid { grid-template-columns: 1fr; }
+            .home-grid { grid-template-columns: 1fr 1fr; }
+            .work-type-grid { grid-template-columns: repeat(3, 1fr); }
+            nav button { padding: 0.5rem 0.7rem; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🏛️ 슬기로운 입찰생활</h1>
+        <p>N2B 기반 원가분석 & 참여판정</p>
+        <div class="n2b-badge">
+            <span class="badge-not">Not</span>
+            <span class="badge-but">But</span>
+            <span class="badge-because">Because</span>
+        </div>
+    </header>
+
+    <nav>
+        <button class="active" onclick="showSection('home', this)">🏠 홈</button>
+        <button onclick="showSection('cost', this)">📊 원가분석</button>
+        <button onclick="showSection('decision', this)">🎯 N2B판정</button>
+        <button onclick="showSection('price', this)">💰 단가조회</button>
+    </nav>
+
+    <main>
+        <!-- Home Section -->
+        <section id="home" class="section active">
+            <div class="info-box">
+                <h4>💡 wise-bid v3.4 새 기능</h4>
+                <p><strong>개략원가 자동 산출</strong>: 기초금액과 공종만 입력하면 재료비/노무비/경비 비율로 표준원가를 계산하고, 업체 절감률을 적용하여 실제원가와 거품률을 산출합니다.</p>
+            </div>
+
+            <div class="home-grid">
+                <div class="home-card" onclick="showSection('cost')">
+                    <div class="icon">📊</div>
+                    <h3>원가분석</h3>
+                    <p>기초금액 → 개략원가<br>거품률 자동계산</p>
+                </div>
+
+                <div class="home-card" onclick="showSection('decision')">
+                    <div class="icon">🎯</div>
+                    <h3>N2B 참여판정</h3>
+                    <p>참여 vs 불참<br>점수로 판단</p>
+                </div>
+
+                <div class="home-card" onclick="showSection('price')">
+                    <div class="icon">💰</div>
+                    <h3>단가조회</h3>
+                    <p>조달청 자재/시공<br>표준단가 검색</p>
+                </div>
+
+                <div class="home-card" onclick="showSection('cost')">
+                    <div class="icon">📈</div>
+                    <h3>투찰전략</h3>
+                    <p>적정 투찰률<br>투찰가 추천</p>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 1.5rem;">
+                <h2>📐 공종별 표준 비율</h2>
+                <p>설계사가 기초금액 산정 시 사용하는 공종별 원가 구성 비율입니다.</p>
+                <table class="cost-table">
+                    <tr>
+                        <th>공종</th>
+                        <th>재료비</th>
+                        <th>노무비</th>
+                        <th>경비</th>
+                    </tr>
+                    <tr><td>🛣️ 도로/포장</td><td>55%</td><td>25%</td><td>20%</td></tr>
+                    <tr><td>🏗️ 토목</td><td>40%</td><td>35%</td><td>25%</td></tr>
+                    <tr><td>🏢 건축</td><td>50%</td><td>30%</td><td>20%</td></tr>
+                    <tr><td>⚙️ 설비</td><td>60%</td><td>25%</td><td>15%</td></tr>
+                    <tr><td>⚡ 전기</td><td>55%</td><td>30%</td><td>15%</td></tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- Cost Analysis Section -->
+        <section id="cost" class="section">
+            <div class="card">
+                <h2>📊 개략원가 분석</h2>
+                <p>기초금액과 공종을 입력하면 표준원가를 역산하고, 업체 절감률을 적용하여 실제원가를 계산합니다.</p>
+
+                <div class="form-group">
+                    <label>공종 선택</label>
+                    <div class="work-type-grid">
+                        <button class="work-type-btn selected" onclick="selectWorkType(this, '도로')">
+                            <span class="emoji">🛣️</span>도로
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '토목')">
+                            <span class="emoji">🏗️</span>토목
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '건축')">
+                            <span class="emoji">🏢</span>건축
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '설비')">
+                            <span class="emoji">⚙️</span>설비
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '전기')">
+                            <span class="emoji">⚡</span>전기
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '조경')">
+                            <span class="emoji">🌳</span>조경
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '상하수도')">
+                            <span class="emoji">💧</span>상하수도
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '기타')">
+                            <span class="emoji">📦</span>기타
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>기초금액 (원)</label>
+                    <input type="text" id="basePrice" placeholder="예: 100000000" oninput="formatNumber(this)">
+                    <small style="color: var(--text-muted);">공고에 표시된 기초금액을 입력하세요</small>
+                </div>
+
+                <div class="info-box">
+                    <h4>🔧 우리 회사 절감률 (강점 반영)</h4>
+                    <p>거래처 직거래, 직영인력, 자가장비 등 우리 회사 강점에 따른 원가 절감률을 입력하세요.</p>
+                </div>
+
+                <div class="slider-group">
+                    <label>
+                        <span>재료비 절감률 (단골 거래처, 직거래 등)</span>
+                        <span class="slider-value" id="materialValue">10%</span>
+                    </label>
+                    <input type="range" id="materialDiscount" min="0" max="30" value="10" 
+                           oninput="updateSliderValue('material')">
+                </div>
+
+                <div class="slider-group">
+                    <label>
+                        <span>노무비 절감률 (직영 인력, 숙련공 등)</span>
+                        <span class="slider-value" id="laborValue">15%</span>
+                    </label>
+                    <input type="range" id="laborDiscount" min="0" max="30" value="15"
+                           oninput="updateSliderValue('labor')">
+                </div>
+
+                <div class="slider-group">
+                    <label>
+                        <span>경비 절감률 (자가 장비, 현장 인접 등)</span>
+                        <span class="slider-value" id="equipmentValue">10%</span>
+                    </label>
+                    <input type="range" id="equipmentDiscount" min="0" max="30" value="10"
+                           oninput="updateSliderValue('equipment')">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="calculateCost()">📊 원가 계산</button>
+                    <button class="btn btn-secondary" onclick="resetCost()">초기화</button>
+                </div>
+
+                <div class="loading" id="costLoading">
+                    <div class="spinner"></div>
+                    <p>원가를 분석하고 있습니다...</p>
+                </div>
+
+                <div id="costResult" class="result-box">
+                    <!-- 결과가 여기에 표시됨 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- N2B Decision Section -->
+        <section id="decision" class="section">
+            <div class="card">
+                <h2>🎯 N2B 참여 판정</h2>
+                <p>원가분석 결과를 바탕으로 입찰 참여 여부를 N2B 프레임워크로 판정합니다.</p>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>기초금액 (원)</label>
+                        <input type="text" id="decisionBasePrice" placeholder="100000000" oninput="formatNumber(this)">
+                    </div>
+                    <div class="form-group">
+                        <label>예상 실제원가 (원)</label>
+                        <input type="text" id="estimatedCost" placeholder="75000000" oninput="formatNumber(this)">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>공종</label>
+                        <select id="decisionWorkType">
+                            <option value="도로">🛣️ 도로/포장</option>
+                            <option value="토목">🏗️ 토목</option>
+                            <option value="건축">🏢 건축</option>
+                            <option value="설비">⚙️ 설비</option>
+                            <option value="전기">⚡ 전기</option>
+                            <option value="기타">📦 기타</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>최소 요구 수익률 (%)</label>
+                        <input type="number" id="minProfitRate" value="10" min="0" max="50">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="analyzeDecision()">🎯 N2B 판정</button>
+                    <button class="btn btn-secondary" onclick="resetDecision()">초기화</button>
+                </div>
+
+                <div class="loading" id="decisionLoading">
+                    <div class="spinner"></div>
+                    <p>N2B 분석 중...</p>
+                </div>
+
+                <div id="decisionResult" class="result-box">
+                    <!-- 판정 결과가 여기에 표시됨 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Price Search Section -->
+        <section id="price" class="section">
+            <div class="card">
+                <h2>💰 조달청 단가 조회</h2>
+                <p>조달청 가격정보에서 자재/시공 표준단가를 검색합니다.</p>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>검색어</label>
+                        <input type="text" id="priceKeyword" placeholder="예: 아스콘, 레미콘, 철근">
+                    </div>
+                    <div class="form-group">
+                        <label>분류</label>
+                        <select id="priceCategory">
+                            <option value="토목">토목</option>
+                            <option value="건축">건축</option>
+                            <option value="기계">기계설비</option>
+                            <option value="전기">전기/통신</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="searchPrice()">🔍 단가 검색</button>
+                </div>
+
+                <div class="loading" id="priceLoading">
+                    <div class="spinner"></div>
+                    <p>조달청 가격정보를 조회 중...</p>
+                </div>
+
+                <div id="priceResult" class="result-box">
+                    <!-- 검색 결과가 여기에 표시됨 -->
+                </div>
+
+                <div class="info-box" style="margin-top: 1.5rem;">
+                    <h4>💡 단가 정보 활용</h4>
+                    <p>조달청 가격정보는 <strong>표준단가</strong>입니다. 실제 거래 단가는 거래처, 수량, 시기에 따라 다를 수 있습니다. 절감률 산정 시 참고하세요.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // API 엔드포인트
+        const API_BASE = 'https://n2b-backend-1.onrender.com';
+        
+        // 상태
+        let selectedWorkType = '도로';
+
+        // 섹션 전환
+        function showSection(sectionId, btn) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            if (btn) {
+                btn.classList.add('active');
+            } else {
+                document.querySelectorAll('nav button').forEach(b => {
+                    if (b.textContent.includes(sectionId === 'home' ? '홈' : 
+                        sectionId === 'cost' ? '원가' : 
+                        sectionId === 'decision' ? '판정' : '단가')) {
+                        b.classList.add('active');
+                    }
+                });
+            }
+        }
+
+        // 공종 선택
+        function selectWorkType(btn, type) {
+            document.querySelectorAll('.work-type-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedWorkType = type;
+        }
+
+        // 슬라이더 값 업데이트
+        function updateSliderValue(type) {
+            const slider = document.getElementById(type + 'Discount');
+            const valueSpan = document.getElementById(type + 'Value');
+            valueSpan.textContent = slider.value + '%';
+        }
+
+        // 숫자 포맷팅
+        function formatNumber(input) {
+            let value = input.value.replace(/[^\d]/g, '');
+            if (value) {
+                input.value = parseInt(value).toLocaleString();
+            }
+        }
+
+        // 숫자 파싱
+        function parseNumber(str) {
+            return parseInt(str.replace(/[^\d]/g, '')) || 0;
+        }
+
+        // 원가 계산
+        async function calculateCost() {
+            const basePrice = parseNumber(document.getElementById('basePrice').value);
+            if (!basePrice) {
+                alert('기초금액을 입력하세요');
+                return;
+            }
+
+            const materialDiscount = parseInt(document.getElementById('materialDiscount').value);
+            const laborDiscount = parseInt(document.getElementById('laborDiscount').value);
+            const equipmentDiscount = parseInt(document.getElementById('equipmentDiscount').value);
+
+            // 로딩 표시
+            document.getElementById('costLoading').classList.add('show');
+            document.getElementById('costResult').classList.remove('show');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/quick-estimate?base_price=${basePrice}&work_type=${encodeURIComponent(selectedWorkType)}&material_discount=${materialDiscount}&labor_discount=${laborDiscount}&equipment_discount=${equipmentDiscount}`);
+                
+                const data = await response.json();
+                displayCostResult(data);
+            } catch (error) {
+                console.error('Error:', error);
+                // 오프라인 계산 (백업)
+                const result = calculateCostOffline(basePrice, selectedWorkType, materialDiscount, laborDiscount, equipmentDiscount);
+                displayCostResult(result);
+            } finally {
+                document.getElementById('costLoading').classList.remove('show');
+            }
+        }
+
+        // 오프라인 원가 계산 (백업)
+        function calculateCostOffline(basePrice, workType, matDisc, labDisc, eqDisc) {
+            const ratios = {
+                '도로': { '재료비': 55, '노무비': 25, '경비': 20 },
+                '토목': { '재료비': 40, '노무비': 35, '경비': 25 },
+                '건축': { '재료비': 50, '노무비': 30, '경비': 20 },
+                '설비': { '재료비': 60, '노무비': 25, '경비': 15 },
+                '전기': { '재료비': 55, '노무비': 30, '경비': 15 },
+                '기타': { '재료비': 50, '노무비': 30, '경비': 20 }
+            };
+
+            const ratio = ratios[workType] || ratios['기타'];
+            const directCost = Math.floor(basePrice * 0.74);
+            
+            const stdMaterial = Math.floor(directCost * ratio['재료비'] / 100);
+            const stdLabor = Math.floor(directCost * ratio['노무비'] / 100);
+            const stdEquipment = Math.floor(directCost * ratio['경비'] / 100);
+            
+            const actMaterial = Math.floor(stdMaterial * (1 - matDisc / 100));
+            const actLabor = Math.floor(stdLabor * (1 - labDisc / 100));
+            const actEquipment = Math.floor(stdEquipment * (1 - eqDisc / 100));
+            
+            const actDirect = actMaterial + actLabor + actEquipment;
+            const indirectRatio = actDirect / directCost;
+            const actIndirect = Math.floor(basePrice * 0.26 * indirectRatio);
+            const actTotal = actDirect + actIndirect;
+            
+            const bubbleRate = ((basePrice - actTotal) / basePrice * 100).toFixed(1);
+            const recRate = Math.min(95, Math.max(75, (actTotal / basePrice * 100) + 10));
+
+            return {
+                '기초금액': basePrice,
+                '공종': workType,
+                '표준원가': {
+                    '재료비': stdMaterial,
+                    '노무비': stdLabor,
+                    '경비': stdEquipment,
+                    '직접공사비': directCost,
+                    '간접비': Math.floor(basePrice * 0.26),
+                    '합계': basePrice
+                },
+                '실제원가': {
+                    '재료비': actMaterial,
+                    '노무비': actLabor,
+                    '경비': actEquipment,
+                    '직접공사비': actDirect,
+                    '간접비': actIndirect,
+                    '합계': actTotal
+                },
+                '절감금액': basePrice - actTotal,
+                '거품률': parseFloat(bubbleRate),
+                '투찰분석': {
+                    '권장투찰률': parseFloat(recRate.toFixed(1)),
+                    '권장투찰가': Math.floor(basePrice * recRate / 100)
+                }
+            };
+        }
+
+        // 원가 결과 표시
+        function displayCostResult(data) {
+            const resultDiv = document.getElementById('costResult');
+            
+            const bubbleClass = data['거품률'] >= 20 ? 'positive' : 
+                               data['거품률'] >= 10 ? 'neutral' : 'negative';
+            
+            resultDiv.innerHTML = `
+                <h3>📊 원가 분석 결과</h3>
+                
+                <div class="decision-result ${bubbleClass}">
+                    <div class="decision-score">${data['거품률']}%</div>
+                    <div class="decision-label">거품률</div>
+                    <div class="decision-desc">
+                        ${data['거품률'] >= 20 ? '✅ 충분한 마진 확보 가능' : 
+                          data['거품률'] >= 10 ? '⚠️ 적정 수준, 원가 관리 필요' : 
+                          '❌ 마진 부족, 신중 검토 필요'}
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">💰 원가 비교</h4>
+                <table class="cost-table">
+                    <tr>
+                        <th>구분</th>
+                        <th>표준원가</th>
+                        <th>실제원가</th>
+                        <th>절감액</th>
+                    </tr>
+                    <tr>
+                        <td>재료비</td>
+                        <td>${data['표준원가']['재료비'].toLocaleString()}원</td>
+                        <td>${data['실제원가']['재료비'].toLocaleString()}원</td>
+                        <td class="saving">-${(data['표준원가']['재료비'] - data['실제원가']['재료비']).toLocaleString()}원</td>
+                    </tr>
+                    <tr>
+                        <td>노무비</td>
+                        <td>${data['표준원가']['노무비'].toLocaleString()}원</td>
+                        <td>${data['실제원가']['노무비'].toLocaleString()}원</td>
+                        <td class="saving">-${(data['표준원가']['노무비'] - data['실제원가']['노무비']).toLocaleString()}원</td>
+                    </tr>
+                    <tr>
+                        <td>경비</td>
+                        <td>${data['표준원가']['경비'].toLocaleString()}원</td>
+                        <td>${data['실제원가']['경비'].toLocaleString()}원</td>
+                        <td class="saving">-${(data['표준원가']['경비'] - data['실제원가']['경비']).toLocaleString()}원</td>
+                    </tr>
+                    <tr class="total">
+                        <td><strong>합계</strong></td>
+                        <td><strong>${data['표준원가']['합계'].toLocaleString()}원</strong></td>
+                        <td><strong>${data['실제원가']['합계'].toLocaleString()}원</strong></td>
+                        <td class="saving"><strong>-${data['절감금액'].toLocaleString()}원</strong></td>
+                    </tr>
+                </table>
+
+                <div class="strategy-box">
+                    <h4>📈 투찰 전략</h4>
+                    <div class="strategy-grid">
+                        <div class="strategy-item">
+                            <div class="value">${data['투찰분석']['권장투찰률']}%</div>
+                            <div class="label">권장 투찰률</div>
+                        </div>
+                        <div class="strategy-item">
+                            <div class="value">${data['투찰분석']['권장투찰가'].toLocaleString()}</div>
+                            <div class="label">권장 투찰가 (원)</div>
+                        </div>
+                        <div class="strategy-item">
+                            <div class="value">${(data['투찰분석']['권장투찰가'] - data['실제원가']['합계']).toLocaleString()}</div>
+                            <div class="label">예상 이익 (원)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="copyToCostDecision(${data['기초금액']}, ${data['실제원가']['합계']})">
+                        🎯 N2B 판정으로 이동
+                    </button>
+                </div>
+            `;
+            
+            resultDiv.classList.add('show');
+        }
+
+        // 원가분석 결과를 판정 화면으로 복사
+        function copyToCostDecision(basePrice, estimatedCost) {
+            document.getElementById('decisionBasePrice').value = basePrice.toLocaleString();
+            document.getElementById('estimatedCost').value = estimatedCost.toLocaleString();
+            showSection('decision');
+        }
+
+        // 원가 초기화
+        function resetCost() {
+            document.getElementById('basePrice').value = '';
+            document.getElementById('materialDiscount').value = 10;
+            document.getElementById('laborDiscount').value = 15;
+            document.getElementById('equipmentDiscount').value = 10;
+            updateSliderValue('material');
+            updateSliderValue('labor');
+            updateSliderValue('equipment');
+            document.getElementById('costResult').classList.remove('show');
+        }
+
+        // N2B 판정
+        async function analyzeDecision() {
+            const basePrice = parseNumber(document.getElementById('decisionBasePrice').value);
+            const estimatedCost = parseNumber(document.getElementById('estimatedCost').value);
+            
+            if (!basePrice || !estimatedCost) {
+                alert('기초금액과 예상원가를 입력하세요');
+                return;
+            }
+
+            const workType = document.getElementById('decisionWorkType').value;
+            const minProfitRate = parseFloat(document.getElementById('minProfitRate').value) || 10;
+
+            document.getElementById('decisionLoading').classList.add('show');
+            document.getElementById('decisionResult').classList.remove('show');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/quick-decision?base_price=${basePrice}&estimated_cost=${estimatedCost}&work_type=${encodeURIComponent(workType)}&min_profit_rate=${minProfitRate}`);
+                
+                const data = await response.json();
+                displayDecisionResult(data);
+            } catch (error) {
+                console.error('Error:', error);
+                // 오프라인 판정 (백업)
+                const result = analyzeDecisionOffline(basePrice, estimatedCost, minProfitRate);
+                displayDecisionResult(result);
+            } finally {
+                document.getElementById('decisionLoading').classList.remove('show');
+            }
+        }
+
+        // 오프라인 판정 (백업)
+        function analyzeDecisionOffline(basePrice, estimatedCost, minProfitRate) {
+            const bubbleRate = ((basePrice - estimatedCost) / basePrice * 100);
+            const profitRate = ((basePrice - estimatedCost) / estimatedCost * 100);
+            
+            let score = 50;
+            if (bubbleRate >= 25) score += 30;
+            else if (bubbleRate >= 20) score += 25;
+            else if (bubbleRate >= 15) score += 20;
+            else if (bubbleRate >= 10) score += 15;
+            else if (bubbleRate >= 5) score += 10;
+            
+            if (profitRate >= minProfitRate + 10) score += 20;
+            else if (profitRate >= minProfitRate + 5) score += 15;
+            else if (profitRate >= minProfitRate) score += 10;
+            else if (profitRate >= minProfitRate - 5) score += 5;
+            else score -= 10;
+            
+            score = Math.max(0, Math.min(100, score));
+            
+            let decision, recommendation;
+            if (score >= 75) {
+                decision = '적극 참여';
+                recommendation = '수익성 높음, 적극 참여 권장';
+            } else if (score >= 60) {
+                decision = '참여 권장';
+                recommendation = '적정 수익 예상, 참여 고려';
+            } else if (score >= 45) {
+                decision = '조건부 참여';
+                recommendation = '원가 재검토 후 참여 결정';
+            } else if (score >= 30) {
+                decision = '신중 검토';
+                recommendation = '리스크 높음, 신중한 검토 필요';
+            } else {
+                decision = '불참 권장';
+                recommendation = '수익성 낮음, 불참 권장';
+            }
+
+            return {
+                decision: decision,
+                score: score,
+                recommendation: recommendation,
+                n2b: {
+                    not: `단순히 기초금액 ${basePrice.toLocaleString()}원이 커서 참여하는 것이 아니다`,
+                    but: `실제원가 ${estimatedCost.toLocaleString()}원 대비 거품률 ${bubbleRate.toFixed(1)}%가 판단 기준이다`,
+                    because: `거품률이 ${bubbleRate >= 15 ? '충분하여' : '부족하여'} 예상수익률 ${profitRate.toFixed(1)}%${profitRate >= minProfitRate ? '로 참여 가치가 있다' : '로 리스크가 있다'}`
+                },
+                '분석': {
+                    '기초금액': basePrice,
+                    '예상원가': estimatedCost,
+                    '거품률': bubbleRate.toFixed(1),
+                    '예상수익': basePrice - estimatedCost,
+                    '수익률': profitRate.toFixed(1)
+                }
+            };
+        }
+
+        // 판정 결과 표시
+        function displayDecisionResult(data) {
+            const resultDiv = document.getElementById('decisionResult');
+            
+            const decisionClass = data.score >= 60 ? 'positive' : 
+                                 data.score >= 40 ? 'neutral' : 'negative';
+            
+            resultDiv.innerHTML = `
+                <h3>🎯 N2B 참여 판정 결과</h3>
+                
+                <div class="decision-result ${decisionClass}">
+                    <div class="decision-score">${data.score}점</div>
+                    <div class="decision-label">${data.decision}</div>
+                    <div class="decision-desc">${data.recommendation}</div>
+                </div>
+
+                <div class="n2b-result">
+                    <h4 style="margin-bottom: 1rem;">📋 N2B 분석</h4>
+                    <div class="n2b-item">
+                        <span class="n2b-label not">NOT</span>
+                        <span class="n2b-text">${data.n2b.not}</span>
+                    </div>
+                    <div class="n2b-item">
+                        <span class="n2b-label but">BUT</span>
+                        <span class="n2b-text">${data.n2b.but}</span>
+                    </div>
+                    <div class="n2b-item">
+                        <span class="n2b-label because">BECAUSE</span>
+                        <span class="n2b-text">${data.n2b.because}</span>
+                    </div>
+                </div>
+
+                <div class="strategy-box">
+                    <h4>📊 핵심 지표</h4>
+                    <div class="strategy-grid">
+                        <div class="strategy-item">
+                            <div class="value">${parseFloat(data['분석']['거품률']).toFixed(1)}%</div>
+                            <div class="label">거품률</div>
+                        </div>
+                        <div class="strategy-item">
+                            <div class="value">${parseFloat(data['분석']['수익률']).toFixed(1)}%</div>
+                            <div class="label">예상 수익률</div>
+                        </div>
+                        <div class="strategy-item">
+                            <div class="value">${data['분석']['예상수익'].toLocaleString()}</div>
+                            <div class="label">예상 수익 (원)</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            resultDiv.classList.add('show');
+        }
+
+        // 판정 초기화
+        function resetDecision() {
+            document.getElementById('decisionBasePrice').value = '';
+            document.getElementById('estimatedCost').value = '';
+            document.getElementById('minProfitRate').value = 10;
+            document.getElementById('decisionResult').classList.remove('show');
+        }
+
+        // 단가 검색
+        async function searchPrice() {
+            const keyword = document.getElementById('priceKeyword').value.trim();
+            if (!keyword) {
+                alert('검색어를 입력하세요');
+                return;
+            }
+
+            document.getElementById('priceLoading').classList.add('show');
+            document.getElementById('priceResult').classList.remove('show');
+
+            try {
+                const category = document.getElementById('priceCategory').value;
+                const response = await fetch(`${API_BASE}/api/price-search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword: keyword, category: category })
+                });
+                
+                const data = await response.json();
+                displayPriceResult(data);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('priceResult').innerHTML = `
+                    <h3>⚠️ 조회 실패</h3>
+                    <p>조달청 API 연결에 실패했습니다. 나중에 다시 시도해주세요.</p>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">
+                        조달청 가격정보는 <a href="https://www.g2b.go.kr" target="_blank">나라장터</a>에서 직접 확인하실 수 있습니다.
+                    </p>
+                `;
+                document.getElementById('priceResult').classList.add('show');
+            } finally {
+                document.getElementById('priceLoading').classList.remove('show');
+            }
+        }
+
+        // 단가 결과 표시
+        function displayPriceResult(data) {
+            const resultDiv = document.getElementById('priceResult');
+            
+            let html = `<h3>💰 단가 검색 결과 (${data.total}건)</h3>`;
+            
+            if (data['자재단가'] && data['자재단가'].length > 0) {
+                html += `<h4 style="margin-top: 1rem;">📦 자재단가</h4>`;
+                html += `<table class="cost-table">
+                    <tr><th>품명</th><th>규격</th><th>단위</th><th>단가</th></tr>`;
+                data['자재단가'].forEach(item => {
+                    html += `<tr>
+                        <td>${item.name}</td>
+                        <td>${item.spec}</td>
+                        <td>${item.unit}</td>
+                        <td>${item.price.toLocaleString()}원</td>
+                    </tr>`;
+                });
+                html += `</table>`;
+            }
+            
+            if (data['시공단가'] && data['시공단가'].length > 0) {
+                html += `<h4 style="margin-top: 1rem;">🔧 시공단가</h4>`;
+                html += `<table class="cost-table">
+                    <tr><th>공종</th><th>세부</th><th>단위</th><th>단가</th></tr>`;
+                data['시공단가'].forEach(item => {
+                    html += `<tr>
+                        <td>${item.name}</td>
+                        <td>${item.spec}</td>
+                        <td>${item.unit}</td>
+                        <td>${item.price.toLocaleString()}원</td>
+                    </tr>`;
+                });
+                html += `</table>`;
+            }
+            
+            if (data.total === 0) {
+                html += `<p style="padding: 1rem; text-align: center; color: var(--text-muted);">
+                    검색 결과가 없습니다. 다른 검색어를 시도해보세요.
+                </p>`;
+            }
+            
+            resultDiv.innerHTML = html;
+            resultDiv.classList.add('show');
+        }
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSliderValue('material');
+            updateSliderValue('labor');
+            updateSliderValue('equipment');
+        });
+    </script>
+</body>
+</html>
