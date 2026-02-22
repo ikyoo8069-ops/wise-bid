@@ -441,6 +441,51 @@
         .profile-name { font-weight: 600; color: var(--primary); margin-bottom: 0.3rem; }
         .profile-desc { font-size: 0.8rem; color: var(--text-muted); text-align: center; }
 
+        /* 지역 선택 그리드 */
+        .region-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .checkbox-label:hover {
+            background: #f7fafc;
+        }
+
+        .checkbox-label input:checked + span,
+        .checkbox-label:has(input:checked) {
+            background: #ebf8ff;
+            border-color: var(--primary-light);
+        }
+
+        .full-width {
+            width: 100%;
+        }
+
+        small {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 768px) {
+            .region-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
         /* 매칭 결과 */
         .match-summary {
             background: linear-gradient(135deg, #e6fffa 0%, #ebf8ff 100%);
@@ -624,27 +669,62 @@
         <section id="match" class="section">
             <div class="card">
                 <h2>🎯 회사-공고 매칭</h2>
-                <p>회사 프로필을 선택하면 맞춤 입찰공고를 찾아드립니다.</p>
+                <p>업종과 금액을 선택하면 맞춤 입찰공고를 찾아드립니다.</p>
 
-                <!-- 샘플 프로필 선택 -->
+                <!-- 업종 선택 -->
                 <div class="form-group">
-                    <label>🏢 샘플 회사 선택</label>
-                    <div class="profile-grid">
-                        <button class="profile-btn selected" onclick="selectProfile(this, 'road')">
-                            <span class="profile-icon">🛣️</span>
-                            <span class="profile-name">(주)한길도로</span>
-                            <span class="profile-desc">도로포장 전문 | 5천만~20억</span>
-                        </button>
-                        <button class="profile-btn" onclick="selectProfile(this, 'general')">
-                            <span class="profile-icon">🏗️</span>
-                            <span class="profile-name">대한종합건설(주)</span>
-                            <span class="profile-desc">종합건설 | 5억~500억</span>
-                        </button>
-                        <button class="profile-btn" onclick="selectProfile(this, 'electric')">
-                            <span class="profile-icon">⚡</span>
-                            <span class="profile-name">(주)밝은전기</span>
-                            <span class="profile-desc">전기설비 전문 | 3천만~10억</span>
-                        </button>
+                    <label>🏗️ 업종 선택</label>
+                    <select id="matchCnstty" class="full-width">
+                        <option value="도로포장">도로포장공사업</option>
+                        <option value="토목">토목공사업</option>
+                        <option value="건축">건축공사업</option>
+                        <option value="전기">전기공사업</option>
+                        <option value="정보통신">정보통신공사업</option>
+                        <option value="소방">소방시설공사업</option>
+                        <option value="조경">조경공사업</option>
+                        <option value="상하수도">상하수도설비공사업</option>
+                        <option value="실내건축">실내건축공사업</option>
+                        <option value="철근콘크리트">철근콘크리트공사업</option>
+                        <option value="포장">아스팔트포장공사</option>
+                    </select>
+                </div>
+
+                <!-- 금액 범위 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>💰 최소 금액 (원)</label>
+                        <input type="number" id="matchMinPrice" value="50000000" placeholder="50,000,000">
+                        <small>기본: 5천만원</small>
+                    </div>
+                    <div class="form-group">
+                        <label>💰 최대 금액 (원)</label>
+                        <input type="number" id="matchMaxPrice" value="2000000000" placeholder="2,000,000,000">
+                        <small>기본: 20억원</small>
+                    </div>
+                </div>
+
+                <!-- 지역 선택 -->
+                <div class="form-group">
+                    <label>📍 지역 선택 (복수 가능)</label>
+                    <div class="region-grid">
+                        <label class="checkbox-label"><input type="checkbox" value="서울" checked> 서울</label>
+                        <label class="checkbox-label"><input type="checkbox" value="경기" checked> 경기</label>
+                        <label class="checkbox-label"><input type="checkbox" value="인천" checked> 인천</label>
+                        <label class="checkbox-label"><input type="checkbox" value="부산"> 부산</label>
+                        <label class="checkbox-label"><input type="checkbox" value="대구"> 대구</label>
+                        <label class="checkbox-label"><input type="checkbox" value="대전"> 대전</label>
+                        <label class="checkbox-label"><input type="checkbox" value="광주"> 광주</label>
+                        <label class="checkbox-label"><input type="checkbox" value="울산"> 울산</label>
+                        <label class="checkbox-label"><input type="checkbox" value="세종"> 세종</label>
+                        <label class="checkbox-label"><input type="checkbox" value="강원"> 강원</label>
+                        <label class="checkbox-label"><input type="checkbox" value="충북"> 충북</label>
+                        <label class="checkbox-label"><input type="checkbox" value="충남"> 충남</label>
+                        <label class="checkbox-label"><input type="checkbox" value="전북"> 전북</label>
+                        <label class="checkbox-label"><input type="checkbox" value="전남"> 전남</label>
+                        <label class="checkbox-label"><input type="checkbox" value="경북"> 경북</label>
+                        <label class="checkbox-label"><input type="checkbox" value="경남"> 경남</label>
+                        <label class="checkbox-label"><input type="checkbox" value="제주"> 제주</label>
+                        <label class="checkbox-label"><input type="checkbox" value="전국"> 전국</label>
                     </div>
                 </div>
 
@@ -912,14 +992,36 @@
         async function searchMatchingBids() {
             const keyword = document.getElementById('matchKeyword').value;
             const bidType = document.getElementById('matchBidType').value;
+            const cnstty = document.getElementById('matchCnstty').value;
+            const minPrice = parseInt(document.getElementById('matchMinPrice').value) || 50000000;
+            const maxPrice = parseInt(document.getElementById('matchMaxPrice').value) || 2000000000;
+            
+            // 선택된 지역 가져오기
+            const regionCheckboxes = document.querySelectorAll('.region-grid input[type="checkbox"]:checked');
+            const regions = Array.from(regionCheckboxes).map(cb => cb.value);
+            
+            if (regions.length === 0) {
+                alert('지역을 최소 1개 선택해주세요.');
+                return;
+            }
 
             document.getElementById('matchLoading').classList.add('show');
             document.getElementById('matchResult').style.display = 'none';
             document.getElementById('matchN2B').style.display = 'none';
 
             try {
-                const url = `${API_BASE}/api/quick-match/${encodeURIComponent(selectedProfile)}?keyword=${encodeURIComponent(keyword)}&bid_type=${encodeURIComponent(bidType)}`;
-                const response = await fetch(url);
+                const response = await fetch(`${API_BASE}/api/custom-match`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        work_types: [cnstty],
+                        min_price: minPrice,
+                        max_price: maxPrice,
+                        regions: regions,
+                        keyword: keyword,
+                        bid_type: bidType
+                    })
+                });
                 const data = await response.json();
 
                 if (data.success) {
