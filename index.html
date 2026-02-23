@@ -669,71 +669,80 @@
         <section id="match" class="section">
             <div class="card">
                 <h2>🎯 회사-공고 매칭</h2>
-                <p>업종과 금액을 선택하면 맞춤 입찰공고를 찾아드립니다.</p>
+                <p>업종과 조건을 선택하면 맞춤 입찰공고를 찾아드립니다.</p>
 
-                <!-- 업종 선택 -->
+                <!-- 샘플기업 선택 -->
                 <div class="form-group">
-                    <label>🏗️ 업종 선택</label>
-                    <select id="matchCnstty" class="full-width">
-                        <option value="포장">도로포장공사업</option>
-                        <option value="토목">토목공사업</option>
-                        <option value="건축">건축공사업</option>
-                        <option value="전기">전기공사업</option>
-                        <option value="통신">정보통신공사업</option>
-                        <option value="소방">소방시설공사업</option>
-                        <option value="조경">조경공사업</option>
-                        <option value="상하수도">상하수도설비공사업</option>
-                        <option value="실내건축">실내건축공사업</option>
-                        <option value="철근">철근콘크리트공사업</option>
-                        <option value="아스콘">아스팔트포장공사</option>
+                    <label>🏢 샘플기업 선택 (또는 직접 설정)</label>
+                    <select id="sampleCompany" class="full-width" onchange="applySampleCompany()">
+                        <option value="">-- 직접 설정 --</option>
+                        <option value="road">(주)한길도로 - 포장 전문 | 3천만~10억 | 전국</option>
+                        <option value="civil">대한종합건설(주) - 토목 | 5억~100억 | 전국</option>
+                        <option value="electric">(주)밝은전기 - 전기 | 3천만~10억 | 수도권</option>
+                        <option value="building">미래건축(주) - 건축 | 1억~50억 | 영남권</option>
+                        <option value="landscape">그린조경(주) - 조경 | 3천만~5억 | 충청권</option>
                     </select>
                 </div>
 
-                <!-- 금액 범위 -->
+                <!-- 업종 선택 (대분류 → 중분류 → 소분류) -->
                 <div class="form-row">
                     <div class="form-group">
-                        <label>💰 최소 금액 (원)</label>
-                        <input type="number" id="matchMinPrice" value="30000000" placeholder="30,000,000">
-                        <small>기본: 3천만원</small>
+                        <label>📂 대분류</label>
+                        <select id="matchCategory1" class="full-width" onchange="updateCategory2()">
+                            <option value="공사">공사</option>
+                            <option value="용역">용역</option>
+                            <option value="물품">물품</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label>💰 최대 금액 (원)</label>
-                        <input type="number" id="matchMaxPrice" value="2000000000" placeholder="2,000,000,000">
-                        <small>기본: 20억원</small>
+                        <label>📁 중분류</label>
+                        <select id="matchCategory2" class="full-width" onchange="updateCategory3()">
+                            <option value="종합건설업">종합건설업</option>
+                            <option value="전문건설업">전문건설업</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>📄 소분류 (업종)</label>
+                        <select id="matchCnstty" class="full-width">
+                            <option value="토목">토목공사업</option>
+                            <option value="건축">건축공사업</option>
+                            <option value="토목건축">토목건축공사업</option>
+                            <option value="산업설비">산업설비공사업</option>
+                            <option value="조경">조경공사업</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- 지역 선택 -->
-                <div class="form-group">
-                    <label>📍 지역 선택 (복수 가능)</label>
-                    <div class="region-grid">
-                        <label class="checkbox-label"><input type="checkbox" value="전국" checked> 전국</label>
-                        <label class="checkbox-label"><input type="checkbox" value="서울"> 서울</label>
-                        <label class="checkbox-label"><input type="checkbox" value="경기" checked> 경기</label>
-                        <label class="checkbox-label"><input type="checkbox" value="인천" checked> 인천</label>
-                        <label class="checkbox-label"><input type="checkbox" value="부산"> 부산</label>
-                        <label class="checkbox-label"><input type="checkbox" value="대구"> 대구</label>
-                        <label class="checkbox-label"><input type="checkbox" value="대전"> 대전</label>
-                        <label class="checkbox-label"><input type="checkbox" value="광주"> 광주</label>
-                        <label class="checkbox-label"><input type="checkbox" value="울산"> 울산</label>
-                        <label class="checkbox-label"><input type="checkbox" value="세종"> 세종</label>
-                        <label class="checkbox-label"><input type="checkbox" value="강원"> 강원</label>
-                        <label class="checkbox-label"><input type="checkbox" value="충북"> 충북</label>
-                        <label class="checkbox-label"><input type="checkbox" value="충남"> 충남</label>
-                        <label class="checkbox-label"><input type="checkbox" value="전북"> 전북</label>
-                        <label class="checkbox-label"><input type="checkbox" value="전남"> 전남</label>
-                        <label class="checkbox-label"><input type="checkbox" value="경북"> 경북</label>
-                        <label class="checkbox-label"><input type="checkbox" value="경남"> 경남</label>
-                        <label class="checkbox-label"><input type="checkbox" value="제주"> 제주</label>
-                        <label class="checkbox-label"><input type="checkbox" value="전국"> 전국</label>
+                <!-- 금액 범위 + 지역 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>💰 최소 금액 (천만원)</label>
+                        <input type="number" id="matchMinPrice" value="3" min="0" max="1000" step="1" class="full-width">
+                        <small>예: 3 = 3천만원</small>
+                    </div>
+                    <div class="form-group">
+                        <label>💰 최대 금액 (천만원)</label>
+                        <input type="number" id="matchMaxPrice" value="100" min="1" max="10000" step="1" class="full-width">
+                        <small>예: 100 = 10억원</small>
+                    </div>
+                    <div class="form-group">
+                        <label>📍 지역</label>
+                        <select id="matchRegion" class="full-width">
+                            <option value="전국" selected>전국</option>
+                            <option value="수도권">수도권 (서울/경기/인천)</option>
+                            <option value="충청권">충청권 (대전/세종/충북/충남)</option>
+                            <option value="영남권">영남권 (부산/대구/울산/경북/경남)</option>
+                            <option value="호남권">호남권 (광주/전북/전남)</option>
+                            <option value="강원제주">강원/제주</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- 추가 검색 옵션 -->
+                <!-- 추가 옵션 -->
                 <div class="form-row">
                     <div class="form-group">
                         <label>🔍 추가 키워드 (선택)</label>
-                        <input type="text" id="matchKeyword" placeholder="예: 아스팔트, 도로확장">
+                        <input type="text" id="matchKeyword" placeholder="예: 아스팔트, 학교">
                     </div>
                     <div class="form-group">
                         <label>📋 공고 유형</label>
@@ -962,6 +971,98 @@
         let selectedWorkType = '도로';
         let selectedProfile = 'road';
 
+        // 샘플기업 데이터 (금액: 천만원 단위)
+        const SAMPLE_COMPANIES = {
+            road: { cnstty: '포장', minPrice: '3', maxPrice: '100', region: '전국', cat1: '공사', cat2: '전문건설업' },
+            civil: { cnstty: '토목', minPrice: '50', maxPrice: '1000', region: '전국', cat1: '공사', cat2: '종합건설업' },
+            electric: { cnstty: '전기', minPrice: '3', maxPrice: '100', region: '수도권', cat1: '공사', cat2: '전문건설업' },
+            building: { cnstty: '건축', minPrice: '10', maxPrice: '500', region: '영남권', cat1: '공사', cat2: '종합건설업' },
+            landscape: { cnstty: '조경', minPrice: '3', maxPrice: '50', region: '충청권', cat1: '공사', cat2: '종합건설업' }
+        };
+
+        // 분류 데이터
+        const CATEGORIES = {
+            '공사': {
+                '종합건설업': ['토목', '건축', '토목건축', '산업설비', '조경'],
+                '전문건설업': ['포장', '전기', '통신', '소방', '실내건축', '철근콘크리트', '상하수도', '금속창호']
+            },
+            '용역': {
+                '기술용역': ['설계', '감리', '측량', '엔지니어링'],
+                '일반용역': ['청소', '경비', '시설관리', 'SW개발', '연구']
+            },
+            '물품': {
+                '일반물품': ['사무용품', '전산장비', '차량'],
+                '시설자재': ['건축자재', '전기자재', '배관자재']
+            }
+        };
+
+        // 샘플기업 적용
+        function applySampleCompany() {
+            const company = document.getElementById('sampleCompany').value;
+            if (!company || !SAMPLE_COMPANIES[company]) return;
+            
+            const data = SAMPLE_COMPANIES[company];
+            document.getElementById('matchCategory1').value = data.cat1;
+            updateCategory2();
+            document.getElementById('matchCategory2').value = data.cat2;
+            updateCategory3();
+            
+            // 소분류 설정 (약간의 딜레이 후)
+            setTimeout(() => {
+                document.getElementById('matchCnstty').value = data.cnstty;
+            }, 100);
+            
+            document.getElementById('matchMinPrice').value = data.minPrice;
+            document.getElementById('matchMaxPrice').value = data.maxPrice;
+            document.getElementById('matchRegion').value = data.region;
+        }
+
+        // 대분류 변경 시 중분류 업데이트
+        function updateCategory2() {
+            const cat1 = document.getElementById('matchCategory1').value;
+            const cat2Select = document.getElementById('matchCategory2');
+            const subCats = CATEGORIES[cat1] || {};
+            
+            cat2Select.innerHTML = '';
+            Object.keys(subCats).forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                cat2Select.appendChild(opt);
+            });
+            
+            updateCategory3();
+        }
+
+        // 중분류 변경 시 소분류 업데이트
+        function updateCategory3() {
+            const cat1 = document.getElementById('matchCategory1').value;
+            const cat2 = document.getElementById('matchCategory2').value;
+            const cat3Select = document.getElementById('matchCnstty');
+            const items = CATEGORIES[cat1]?.[cat2] || [];
+            
+            const labels = {
+                '토목': '토목공사업', '건축': '건축공사업', '토목건축': '토목건축공사업',
+                '산업설비': '산업설비공사업', '조경': '조경공사업', '포장': '지반조성포장공사업',
+                '전기': '전기공사업', '통신': '정보통신공사업', '소방': '소방시설공사업',
+                '실내건축': '실내건축공사업', '철근콘크리트': '철근콘크리트공사업',
+                '상하수도': '상하수도설비공사업', '금속창호': '금속창호지붕공사업',
+                '설계': '설계용역', '감리': '감리용역', '측량': '측량용역', '엔지니어링': '엔지니어링',
+                '청소': '청소용역', '경비': '경비용역', '시설관리': '시설관리용역',
+                'SW개발': 'SW개발용역', '연구': '학술연구용역',
+                '사무용품': '사무용품', '전산장비': '전산장비', '차량': '차량',
+                '건축자재': '건축자재', '전기자재': '전기자재', '배관자재': '배관자재'
+            };
+            
+            cat3Select.innerHTML = '';
+            items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                opt.textContent = labels[item] || item;
+                cat3Select.appendChild(opt);
+            });
+        }
+
         // 섹션 전환
         function showSection(sectionId, btn) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -994,17 +1095,14 @@
             const keyword = document.getElementById('matchKeyword').value;
             const bidType = document.getElementById('matchBidType').value;
             const cnstty = document.getElementById('matchCnstty').value;
-            const minPrice = parseInt(document.getElementById('matchMinPrice').value) || 50000000;
-            const maxPrice = parseInt(document.getElementById('matchMaxPrice').value) || 2000000000;
             
-            // 선택된 지역 가져오기
-            const regionCheckboxes = document.querySelectorAll('.region-grid input[type="checkbox"]:checked');
-            const regions = Array.from(regionCheckboxes).map(cb => cb.value);
+            // 천만원 단위 → 원 단위 변환
+            const minPrice = (parseInt(document.getElementById('matchMinPrice').value) || 0) * 10000000;
+            const maxPrice = (parseInt(document.getElementById('matchMaxPrice').value) || 10000) * 10000000;
             
-            if (regions.length === 0) {
-                alert('지역을 최소 1개 선택해주세요.');
-                return;
-            }
+            // 선택된 권역 가져오기
+            const region = document.getElementById('matchRegion').value;
+            const regions = [region];
 
             document.getElementById('matchLoading').classList.add('show');
             document.getElementById('matchResult').style.display = 'none';
