@@ -1193,6 +1193,48 @@
             document.querySelectorAll('.work-type-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             selectedWorkType = type;
+            
+            // 낙찰률 자동 조회
+            fetchBidRate(type);
+        }
+        
+        // 공종별 평균 낙찰률 조회
+        async function fetchBidRate(workType) {
+            const bidRateInput = document.getElementById('bidRate');
+            const bidRateLabel = document.querySelector('label[for="bidRate"]') || 
+                                 bidRateInput?.previousElementSibling?.querySelector('label') ||
+                                 bidRateInput?.parentElement?.querySelector('label');
+            
+            // 로딩 표시
+            if (bidRateInput) {
+                bidRateInput.placeholder = '조회중...';
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/bid-rate?work_type=${encodeURIComponent(workType)}`);
+                const data = await response.json();
+                
+                if (data.avg_bid_rate) {
+                    bidRateInput.value = data.avg_bid_rate;
+                    
+                    // 라벨에 출처 표시
+                    const sourceText = data.sample_count > 0 
+                        ? `경쟁가 = 낙찰률 (%) - ${data.period}, ${data.sample_count}건 평균`
+                        : `경쟁가 = 낙찰률 (%) - 경험적 기준값`;
+                    
+                    // small 태그 업데이트
+                    const smallTag = bidRateInput.parentElement.querySelector('small');
+                    if (smallTag) {
+                        smallTag.textContent = sourceText;
+                    }
+                }
+            } catch (error) {
+                console.error('낙찰률 조회 실패:', error);
+                // 기본값 유지
+                if (bidRateInput) {
+                    bidRateInput.placeholder = '85';
+                }
+            }
         }
 
         // 슬라이더 값 업데이트
@@ -1714,6 +1756,9 @@
             updateSliderValue('material');
             updateSliderValue('labor');
             updateSliderValue('equipment');
+            
+            // 초기 공종(도로) 낙찰률 조회
+            fetchBidRate('도로');
         });
     </script>
 </body>
