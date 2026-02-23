@@ -826,8 +826,8 @@
         <!-- Cost Analysis Section -->
         <section id="cost" class="section">
             <div class="card">
-                <h2>📊 개략원가 분석</h2>
-                <p>기초금액과 공종을 입력하면 표준원가를 역산하고, 업체 절감률을 적용하여 실제원가를 계산합니다.</p>
+                <h2>📊 경쟁가 분석</h2>
+                <p>경쟁가(낙찰률)와 내 원가를 비교하여 이윤을 계산합니다.</p>
 
                 <div class="form-group">
                     <label>공종 선택</label>
@@ -865,8 +865,14 @@
                     <small style="color: var(--text-muted);">공고에 표시된 기초금액을 입력하세요</small>
                 </div>
 
+                <div class="form-group">
+                    <label>경쟁가 = 낙찰률 (%)</label>
+                    <input type="number" id="bidRate" value="85" min="70" max="100" step="0.1">
+                    <small style="color: var(--text-muted);">공종별 평균 낙찰률 (시장 경쟁가)</small>
+                </div>
+
                 <div class="info-box">
-                    <h4>🔧 우리 회사 절감률 (강점 반영)</h4>
+                    <h4>🔧 우리 회사 절감률 (내 원가 산출)</h4>
                     <p>거래처 직거래, 직영인력, 자가장비 등 우리 회사 강점에 따른 원가 절감률을 입력하세요.</p>
                 </div>
 
@@ -898,13 +904,13 @@
                 </div>
 
                 <div class="btn-group">
-                    <button class="btn btn-primary" onclick="calculateCost()">📊 원가 계산</button>
+                    <button class="btn btn-primary" onclick="calculateCost()">📊 경쟁가 분석</button>
                     <button class="btn btn-secondary" onclick="resetCost()">초기화</button>
                 </div>
 
                 <div class="loading" id="costLoading">
                     <div class="spinner"></div>
-                    <p>원가를 분석하고 있습니다...</p>
+                    <p>경쟁가를 분석하고 있습니다...</p>
                 </div>
 
                 <div id="costResult" class="result-box">
@@ -1303,6 +1309,7 @@
                 return;
             }
 
+            const bidRate = parseFloat(document.getElementById('bidRate').value) || 85;
             const materialDiscount = parseInt(document.getElementById('materialDiscount').value);
             const laborDiscount = parseInt(document.getElementById('laborDiscount').value);
             const equipmentDiscount = parseInt(document.getElementById('equipmentDiscount').value);
@@ -1312,53 +1319,78 @@
             document.getElementById('costResult').classList.remove('show');
 
             try {
-                const response = await fetch(`${API_BASE}/api/quick-estimate?base_price=${basePrice}&work_type=${encodeURIComponent(selectedWorkType)}&material_discount=${materialDiscount}&labor_discount=${laborDiscount}&equipment_discount=${equipmentDiscount}`);
-                
-                const data = await response.json();
-                displayCostResult(data);
+                // 경쟁가 기반 계산
+                const result = calculateCostOffline(basePrice, selectedWorkType, materialDiscount, laborDiscount, equipmentDiscount, bidRate);
+                displayCostResult(result);
             } catch (error) {
                 console.error('Error:', error);
-                // 오프라인 계산 (백업)
-                const result = calculateCostOffline(basePrice, selectedWorkType, materialDiscount, laborDiscount, equipmentDiscount);
+                const result = calculateCostOffline(basePrice, selectedWorkType, materialDiscount, laborDiscount, equipmentDiscount, bidRate);
                 displayCostResult(result);
             } finally {
                 document.getElementById('costLoading').classList.remove('show');
             }
         }
 
-        // 오프라인 원가 계산 (백업)
-        function calculateCostOffline(basePrice, workType, matDisc, labDisc, eqDisc) {
+        // 경쟁가 기반 원가 계산
+        function calculateCostOffline(basePrice, workType, matDisc, labDisc, eqDisc, bidRate = 85) {
             const ratios = {
                 '도로': { '재료비': 55, '노무비': 25, '경비': 20 },
                 '토목': { '재료비': 40, '노무비': 35, '경비': 25 },
                 '건축': { '재료비': 50, '노무비': 30, '경비': 20 },
                 '설비': { '재료비': 60, '노무비': 25, '경비': 15 },
                 '전기': { '재료비': 55, '노무비': 30, '경비': 15 },
+                '조경': { '재료비': 45, '노무비': 35, '경비': 20 },
+                '상하수도': { '재료비': 55, '노무비': 25, '경비': 20 },
                 '기타': { '재료비': 50, '노무비': 30, '경비': 20 }
             };
 
             const ratio = ratios[workType] || ratios['기타'];
+            
+            // 경쟁가 계산
+            const competitivePrice = Math.floor(basePrice * bidRate / 100);
+            const bubble = basePrice - competitivePrice;
+            const bubbleRate = ((bubble / basePrice) * 100).toFixed(1);
+            
+            // 직접공사비 (기초금액의 74%)
             const directCost = Math.floor(basePrice * 0.74);
             
+            // 표준원가 (재료/노무/경비)
             const stdMaterial = Math.floor(directCost * ratio['재료비'] / 100);
             const stdLabor = Math.floor(directCost * ratio['노무비'] / 100);
             const stdEquipment = Math.floor(directCost * ratio['경비'] / 100);
             
-            const actMaterial = Math.floor(stdMaterial * (1 - matDisc / 100));
-            const actLabor = Math.floor(stdLabor * (1 - labDisc / 100));
-            const actEquipment = Math.floor(stdEquipment * (1 - eqDisc / 100));
+            // 내 원가 (절감률 적용)
+            const myMaterial = Math.floor(stdMaterial * (1 - matDisc / 100));
+            const myLabor = Math.floor(stdLabor * (1 - labDisc / 100));
+            const myEquipment = Math.floor(stdEquipment * (1 - eqDisc / 100));
             
-            const actDirect = actMaterial + actLabor + actEquipment;
-            const indirectRatio = actDirect / directCost;
-            const actIndirect = Math.floor(basePrice * 0.26 * indirectRatio);
-            const actTotal = actDirect + actIndirect;
+            const myDirect = myMaterial + myLabor + myEquipment;
+            const indirectRatio = myDirect / directCost;
+            const myIndirect = Math.floor(basePrice * 0.26 * indirectRatio);
+            const myCost = myDirect + myIndirect;
             
-            const bubbleRate = ((basePrice - actTotal) / basePrice * 100).toFixed(1);
-            const recRate = Math.min(95, Math.max(75, (actTotal / basePrice * 100) + 10));
+            // 이윤 = 경쟁가 - 내 원가
+            const profit = competitivePrice - myCost;
+            const profitRate = ((profit / basePrice) * 100).toFixed(1);
+            
+            // N2B 판정
+            let n2bResult = 'But';
+            let n2bDesc = '경쟁 수준, 운에 맡김 🎲';
+            if (profit > basePrice * 0.05) {
+                n2bResult = 'Because';
+                n2bDesc = '경쟁력 있음, 적극 참여 ✅';
+            } else if (profit < 0) {
+                n2bResult = 'Not';
+                n2bDesc = '경쟁력 없음, 참여 불가 ❌';
+            }
 
             return {
                 '기초금액': basePrice,
                 '공종': workType,
+                '낙찰률': bidRate,
+                '경쟁가': competitivePrice,
+                '거품': bubble,
+                '거품률': parseFloat(bubbleRate),
                 '표준원가': {
                     '재료비': stdMaterial,
                     '노무비': stdLabor,
@@ -1367,29 +1399,31 @@
                     '간접비': Math.floor(basePrice * 0.26),
                     '합계': basePrice
                 },
-                '실제원가': {
-                    '재료비': actMaterial,
-                    '노무비': actLabor,
-                    '경비': actEquipment,
-                    '직접공사비': actDirect,
-                    '간접비': actIndirect,
-                    '합계': actTotal
+                '내원가': {
+                    '재료비': myMaterial,
+                    '노무비': myLabor,
+                    '경비': myEquipment,
+                    '직접공사비': myDirect,
+                    '간접비': myIndirect,
+                    '합계': myCost
                 },
-                '절감금액': basePrice - actTotal,
-                '거품률': parseFloat(bubbleRate),
-                '투찰분석': {
-                    '권장투찰률': parseFloat(recRate.toFixed(1)),
-                    '권장투찰가': Math.floor(basePrice * recRate / 100)
-                }
+                '이윤': profit,
+                '이윤률': parseFloat(profitRate),
+                'N2B': n2bResult,
+                'N2B설명': n2bDesc
             };
         }
 
-        // 원가 결과 표시
+        // 경쟁가 분석 결과 표시
         function displayCostResult(data) {
             const resultDiv = document.getElementById('costResult');
             
-            const bubbleClass = data['거품률'] >= 20 ? 'positive' : 
-                               data['거품률'] >= 10 ? 'neutral' : 'negative';
+            // N2B 판정에 따른 색상
+            const n2bClass = data['N2B'] === 'Because' ? 'positive' : 
+                            data['N2B'] === 'But' ? 'neutral' : 'negative';
+            
+            const n2bColor = data['N2B'] === 'Because' ? 'var(--because-color)' : 
+                            data['N2B'] === 'But' ? 'var(--but-color)' : 'var(--not-color)';
             
             // 공종별 비율
             const ratios = {
@@ -1398,95 +1432,128 @@
                 '건축': { '재료비': 50, '노무비': 30, '경비': 20 },
                 '설비': { '재료비': 60, '노무비': 25, '경비': 15 },
                 '전기': { '재료비': 55, '노무비': 30, '경비': 15 },
+                '조경': { '재료비': 45, '노무비': 35, '경비': 20 },
+                '상하수도': { '재료비': 55, '노무비': 25, '경비': 20 },
                 '기타': { '재료비': 50, '노무비': 30, '경비': 20 }
             };
             const ratio = ratios[data['공종']] || ratios['기타'];
             
             resultDiv.innerHTML = `
-                <h3>📊 원가 분석 결과</h3>
+                <h3>📊 경쟁가 분석 결과</h3>
                 
-                <div class="decision-result ${bubbleClass}">
-                    <div class="decision-score">${data['거품률']}%</div>
-                    <div class="decision-label">거품률</div>
-                    <div class="decision-desc">
-                        ${data['거품률'] >= 20 ? '✅ 충분한 마진 확보 가능' : 
-                          data['거품률'] >= 10 ? '⚠️ 적정 수준, 원가 관리 필요' : 
-                          '❌ 마진 부족, 신중 검토 필요'}
+                <!-- N2B 판정 -->
+                <div class="decision-result ${n2bClass}">
+                    <div class="decision-score" style="color: ${n2bColor}">${data['N2B']}</div>
+                    <div class="decision-label">${data['N2B설명']}</div>
+                </div>
+
+                <!-- 핵심 지표 -->
+                <div class="match-summary" style="margin-top: 1.5rem;">
+                    <div class="match-stat">
+                        <div class="value">${data['거품률']}%</div>
+                        <div class="label">거품률</div>
+                    </div>
+                    <div class="match-stat">
+                        <div class="value" style="color: ${n2bColor}">${data['이윤률']}%</div>
+                        <div class="label">이윤률</div>
+                    </div>
+                    <div class="match-stat">
+                        <div class="value" style="color: ${n2bColor}">${data['이윤'].toLocaleString()}</div>
+                        <div class="label">이윤 (원)</div>
                     </div>
                 </div>
 
-                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">💰 원가 비교</h4>
+                <!-- 가격 구조 -->
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">💰 가격 구조</h4>
+                <table class="cost-table">
+                    <tr>
+                        <th>구분</th>
+                        <th>금액</th>
+                        <th>비율</th>
+                        <th>설명</th>
+                    </tr>
+                    <tr>
+                        <td>기초금액</td>
+                        <td>${data['기초금액'].toLocaleString()}원</td>
+                        <td>100%</td>
+                        <td>발주처 산정</td>
+                    </tr>
+                    <tr style="background: #fef3c7;">
+                        <td><strong>경쟁가</strong></td>
+                        <td><strong>${data['경쟁가'].toLocaleString()}원</strong></td>
+                        <td><strong>${data['낙찰률']}%</strong></td>
+                        <td>시장 경쟁 수준</td>
+                    </tr>
+                    <tr>
+                        <td>내 원가</td>
+                        <td>${data['내원가']['합계'].toLocaleString()}원</td>
+                        <td>${((data['내원가']['합계'] / data['기초금액']) * 100).toFixed(1)}%</td>
+                        <td>내 실행 비용</td>
+                    </tr>
+                    <tr class="total" style="background: ${data['이윤'] >= 0 ? '#d1fae5' : '#fee2e2'};">
+                        <td><strong>이윤</strong></td>
+                        <td><strong style="color: ${n2bColor}">${data['이윤'].toLocaleString()}원</strong></td>
+                        <td><strong style="color: ${n2bColor}">${data['이윤률']}%</strong></td>
+                        <td>${data['이윤'] >= 0 ? '경쟁가 - 내원가' : '⚠️ 손해!'}</td>
+                    </tr>
+                </table>
+
+                <!-- 상세 원가 -->
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">📋 상세 원가 (직접공사비 기준)</h4>
                 <table class="cost-table">
                     <tr>
                         <th>구분</th>
                         <th>표준원가</th>
-                        <th>실제원가</th>
+                        <th>내 원가</th>
                         <th>절감액</th>
                     </tr>
                     <tr>
                         <td>재료비 (${ratio['재료비']}%)</td>
                         <td>${data['표준원가']['재료비'].toLocaleString()}원</td>
-                        <td>${data['실제원가']['재료비'].toLocaleString()}원</td>
-                        <td class="saving">-${(data['표준원가']['재료비'] - data['실제원가']['재료비']).toLocaleString()}원</td>
+                        <td>${data['내원가']['재료비'].toLocaleString()}원</td>
+                        <td class="saving">-${(data['표준원가']['재료비'] - data['내원가']['재료비']).toLocaleString()}원</td>
                     </tr>
                     <tr>
                         <td>노무비 (${ratio['노무비']}%)</td>
                         <td>${data['표준원가']['노무비'].toLocaleString()}원</td>
-                        <td>${data['실제원가']['노무비'].toLocaleString()}원</td>
-                        <td class="saving">-${(data['표준원가']['노무비'] - data['실제원가']['노무비']).toLocaleString()}원</td>
+                        <td>${data['내원가']['노무비'].toLocaleString()}원</td>
+                        <td class="saving">-${(data['표준원가']['노무비'] - data['내원가']['노무비']).toLocaleString()}원</td>
                     </tr>
                     <tr>
                         <td>경비 (${ratio['경비']}%)</td>
                         <td>${data['표준원가']['경비'].toLocaleString()}원</td>
-                        <td>${data['실제원가']['경비'].toLocaleString()}원</td>
-                        <td class="saving">-${(data['표준원가']['경비'] - data['실제원가']['경비']).toLocaleString()}원</td>
-                    </tr>
-                    <tr class="total">
-                        <td><strong>합계</strong></td>
-                        <td><strong>${data['표준원가']['합계'].toLocaleString()}원</strong></td>
-                        <td><strong>${data['실제원가']['합계'].toLocaleString()}원</strong></td>
-                        <td class="saving"><strong>-${data['절감금액'].toLocaleString()}원</strong></td>
+                        <td>${data['내원가']['경비'].toLocaleString()}원</td>
+                        <td class="saving">-${(data['표준원가']['경비'] - data['내원가']['경비']).toLocaleString()}원</td>
                     </tr>
                 </table>
 
-                <div class="strategy-box">
-                    <h4>📈 투찰 전략</h4>
-                    <div class="strategy-grid">
-                        <div class="strategy-item">
-                            <div class="value">${data['투찰분석']['권장투찰률']}%</div>
-                            <div class="label">권장 투찰률</div>
-                        </div>
-                        <div class="strategy-item">
-                            <div class="value">${data['투찰분석']['권장투찰가'].toLocaleString()}</div>
-                            <div class="label">권장 투찰가 (원)</div>
-                        </div>
-                        <div class="strategy-item">
-                            <div class="value">${(data['투찰분석']['권장투찰가'] - data['실제원가']['합계']).toLocaleString()}</div>
-                            <div class="label">예상 이익 (원)</div>
-                        </div>
+                <!-- N2B 분석 -->
+                <div class="n2b-result" style="margin-top: 1.5rem;">
+                    <h4>📋 N2B 분석</h4>
+                    <div class="n2b-item">
+                        <span class="n2b-label" style="background: var(--not-color)">NOT</span>
+                        <span>단순히 기초금액 ${data['기초금액'].toLocaleString()}원이 커서 참여하는 것이 아니다</span>
                     </div>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary" onclick="copyToCostDecision(${data['기초금액']}, ${data['실제원가']['합계']})">
-                        🎯 N2B 판정으로 이동
-                    </button>
+                    <div class="n2b-item">
+                        <span class="n2b-label" style="background: var(--but-color)">BUT</span>
+                        <span>경쟁가 ${data['경쟁가'].toLocaleString()}원 대비 내 원가 ${data['내원가']['합계'].toLocaleString()}원이 판단 기준이다</span>
+                    </div>
+                    <div class="n2b-item">
+                        <span class="n2b-label" style="background: var(--because-color)">BECAUSE</span>
+                        <span>${data['이윤'] >= 0 ? 
+                            `이윤 ${data['이윤'].toLocaleString()}원 (${data['이윤률']}%)로 참여 가치가 있다` : 
+                            `이윤이 ${data['이윤'].toLocaleString()}원으로 손해, 참여 불가`}</span>
+                    </div>
                 </div>
             `;
             
             resultDiv.classList.add('show');
         }
 
-        // 원가분석 결과를 판정 화면으로 복사
-        function copyToCostDecision(basePrice, estimatedCost) {
-            document.getElementById('decisionBasePrice').value = basePrice.toLocaleString();
-            document.getElementById('estimatedCost').value = estimatedCost.toLocaleString();
-            showSection('decision');
-        }
-
         // 원가 초기화
         function resetCost() {
             document.getElementById('basePrice').value = '';
+            document.getElementById('bidRate').value = 85;
             document.getElementById('materialDiscount').value = 10;
             document.getElementById('laborDiscount').value = 15;
             document.getElementById('equipmentDiscount').value = 10;
