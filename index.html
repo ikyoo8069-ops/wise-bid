@@ -1696,6 +1696,50 @@
                     </tr>
                 </table>
 
+                ${data['이윤'] > 0 ? `
+                <!-- 투찰 전략 슬라이더 -->
+                <div class="strategy-box" style="margin-top: 1.5rem; border-color: var(--accent); background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);">
+                    <h4 style="color: var(--accent-hover);">🎯 투찰 전략 — 목표 이윤 설정</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                        이윤을 줄이면 투찰가가 낮아져 낙찰 확률이 높아집니다. 상황에 맞게 조정하세요.
+                    </p>
+                    <div class="slider-group" style="margin-bottom: 1rem;">
+                        <label>
+                            <span>목표 이윤률</span>
+                            <span class="slider-value" id="targetProfitValue" style="background: var(--accent);">${data['이윤률']}%</span>
+                        </label>
+                        <input type="range" id="targetProfitSlider" 
+                               min="0" max="${Math.ceil(parseFloat(data['이윤률']))}" 
+                               value="${Math.ceil(parseFloat(data['이윤률']))}" step="1"
+                               style="accent-color: var(--accent);"
+                               oninput="updateBidStrategy(${data['기초금액']}, ${data['내원가']['합계']}, ${data['경쟁가']}, this.value)">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                            <span>0% (원가만 회수)</span>
+                            <span>${data['이윤률']}% (최대 이윤)</span>
+                        </div>
+                    </div>
+                    <div id="bidStrategyResult">
+                        <div class="strategy-grid">
+                            <div class="strategy-item">
+                                <div class="value" id="stratBidPrice">${data['경쟁가'].toLocaleString()}</div>
+                                <div class="label">투찰가 (원)</div>
+                            </div>
+                            <div class="strategy-item">
+                                <div class="value" id="stratBidRate">${data['낙찰률']}%</div>
+                                <div class="label">투찰률</div>
+                            </div>
+                            <div class="strategy-item">
+                                <div class="value" id="stratAdvantage" style="color: var(--because-color);">0원</div>
+                                <div class="label">경쟁가 대비 유리</div>
+                            </div>
+                        </div>
+                        <div id="stratMessage" style="text-align: center; margin-top: 0.8rem; padding: 0.6rem; border-radius: 8px; font-weight: 600; background: #d1fae5; color: #065f46;">
+                            이윤 ${data['이윤률']}% — 경쟁가 수준으로 투찰
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
                 <div class="n2b-result" style="margin-top: 1.5rem;">
                     <h4>📋 N2B 분석</h4>
                     <div class="n2b-item">
@@ -1716,6 +1760,50 @@
             `;
             
             resultDiv.classList.add('show');
+        }
+
+        // 투찰 전략 슬라이더 업데이트
+        function updateBidStrategy(basePrice, myCost, competitivePrice, targetProfitPct) {
+            const targetProfit = Math.floor(basePrice * targetProfitPct / 100);
+            const bidPrice = myCost + targetProfit;
+            const bidRate = ((bidPrice / basePrice) * 100).toFixed(1);
+            const advantage = competitivePrice - bidPrice;
+            
+            document.getElementById('targetProfitValue').textContent = targetProfitPct + '%';
+            document.getElementById('stratBidPrice').textContent = bidPrice.toLocaleString();
+            document.getElementById('stratBidRate').textContent = bidRate + '%';
+            document.getElementById('stratAdvantage').textContent = 
+                (advantage >= 0 ? '−' : '+') + Math.abs(advantage).toLocaleString() + '원';
+            
+            const msgEl = document.getElementById('stratMessage');
+            const advEl = document.getElementById('stratAdvantage');
+            
+            if (targetProfitPct == 0) {
+                msgEl.textContent = '⚠️ 이윤 0% — 원가만 회수, 급할 때만!';
+                msgEl.style.background = '#fee2e2';
+                msgEl.style.color = '#991b1b';
+                advEl.style.color = 'var(--because-color)';
+            } else if (advantage > basePrice * 0.03) {
+                msgEl.textContent = `💪 경쟁가보다 ${advantage.toLocaleString()}원 유리 — 낙찰 확률 높음!`;
+                msgEl.style.background = '#d1fae5';
+                msgEl.style.color = '#065f46';
+                advEl.style.color = 'var(--because-color)';
+            } else if (advantage > 0) {
+                msgEl.textContent = `👍 경쟁가보다 ${advantage.toLocaleString()}원 유리 — 적정 수준`;
+                msgEl.style.background = '#dbeafe';
+                msgEl.style.color = '#1e40af';
+                advEl.style.color = 'var(--but-color)';
+            } else if (advantage === 0) {
+                msgEl.textContent = '📊 경쟁가와 동일 — 일반 경쟁 수준';
+                msgEl.style.background = '#fef3c7';
+                msgEl.style.color = '#92400e';
+                advEl.style.color = 'var(--accent)';
+            } else {
+                msgEl.textContent = `⚠️ 경쟁가보다 ${Math.abs(advantage).toLocaleString()}원 불리 — 낙찰 어려울 수 있음`;
+                msgEl.style.background = '#fee2e2';
+                msgEl.style.color = '#991b1b';
+                advEl.style.color = 'var(--not-color)';
+            }
         }
 
         function resetCost() {
