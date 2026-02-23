@@ -875,7 +875,10 @@
                 <p>경쟁가(낙찰률)와 내 원가를 비교하여 이윤을 계산합니다.</p>
 
                 <div class="form-group">
-                    <label>공종 선택</label>
+                    <label>업종 선택</label>
+                    <div style="margin-bottom: 0.5rem;">
+                        <small style="font-weight: 600; color: var(--primary);">📋 공사</small>
+                    </div>
                     <div class="work-type-grid">
                         <button class="work-type-btn selected" onclick="selectWorkType(this, '도로')">
                             <span class="emoji">🛣️</span>도로
@@ -900,6 +903,40 @@
                         </button>
                         <button class="work-type-btn" onclick="selectWorkType(this, '기타')">
                             <span class="emoji">📦</span>기타
+                        </button>
+                    </div>
+                    <div style="margin: 0.8rem 0 0.5rem;">
+                        <small style="font-weight: 600; color: var(--but-color);">📄 용역</small>
+                    </div>
+                    <div class="work-type-grid">
+                        <button class="work-type-btn" onclick="selectWorkType(this, '설계')">
+                            <span class="emoji">📐</span>설계
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '감리')">
+                            <span class="emoji">👷</span>감리
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, 'SW개발')">
+                            <span class="emoji">💻</span>SW개발
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '시설관리')">
+                            <span class="emoji">🧹</span>시설관리
+                        </button>
+                    </div>
+                    <div style="margin: 0.8rem 0 0.5rem;">
+                        <small style="font-weight: 600; color: var(--because-color);">📦 물품</small>
+                    </div>
+                    <div class="work-type-grid">
+                        <button class="work-type-btn" onclick="selectWorkType(this, '전산장비')">
+                            <span class="emoji">🖥️</span>전산장비
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '자재')">
+                            <span class="emoji">🧱</span>자재
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '사무용품')">
+                            <span class="emoji">🗂️</span>사무용품
+                        </button>
+                        <button class="work-type-btn" onclick="selectWorkType(this, '일반물품')">
+                            <span class="emoji">📦</span>일반물품
                         </button>
                     </div>
                 </div>
@@ -992,6 +1029,52 @@
         let selectedProfile = 'road';
         let currentBidRateData = null; // 현재 낙찰률 데이터 캐시
 
+        // 공종별 원가 비율 (공사/용역/물품 통합)
+        function getCostRatio(workType) {
+            const ratios = {
+                // 공사
+                '도로': { '재료비': 55, '노무비': 25, '경비': 20 },
+                '토목': { '재료비': 40, '노무비': 35, '경비': 25 },
+                '건축': { '재료비': 50, '노무비': 30, '경비': 20 },
+                '설비': { '재료비': 60, '노무비': 25, '경비': 15 },
+                '전기': { '재료비': 55, '노무비': 30, '경비': 15 },
+                '조경': { '재료비': 45, '노무비': 35, '경비': 20 },
+                '상하수도': { '재료비': 55, '노무비': 25, '경비': 20 },
+                // 용역
+                '설계': { '재료비': 10, '노무비': 65, '경비': 25 },
+                '감리': { '재료비': 10, '노무비': 65, '경비': 25 },
+                'SW개발': { '재료비': 15, '노무비': 60, '경비': 25 },
+                '시설관리': { '재료비': 20, '노무비': 55, '경비': 25 },
+                // 물품
+                '전산장비': { '재료비': 75, '노무비': 10, '경비': 15 },
+                '자재': { '재료비': 75, '노무비': 10, '경비': 15 },
+                '사무용품': { '재료비': 70, '노무비': 10, '경비': 20 },
+                '일반물품': { '재료비': 70, '노무비': 10, '경비': 20 },
+                '기타': { '재료비': 50, '노무비': 30, '경비': 20 }
+            };
+            return ratios[workType] || ratios['기타'];
+        }
+
+        // 공종 카테고리 판별
+        function getWorkCategory(workType) {
+            const 용역 = ['설계', '감리', 'SW개발', '시설관리', '엔지니어링', '일반용역'];
+            const 물품 = ['전산장비', '자재', '사무용품', '일반물품'];
+            if (용역.includes(workType)) return '용역';
+            if (물품.includes(workType)) return '물품';
+            return '공사';
+        }
+
+        // 원가 항목 라벨 (용역/물품은 다른 용어 사용)
+        function getCostLabels(workType) {
+            const cat = getWorkCategory(workType);
+            if (cat === '용역') {
+                return { '재료비': '기술료/경비', '노무비': '직접인건비', '경비': '제경비' };
+            } else if (cat === '물품') {
+                return { '재료비': '제조원가/구매비', '노무비': '검수/설치비', '경비': '운송/관리비' };
+            }
+            return { '재료비': '재료비', '노무비': '노무비', '경비': '경비' };
+        }
+
         const SAMPLE_COMPANIES = {
             road: { cnstty: '포장', minPrice: '3', maxPrice: '100', region: '전국', cat1: '공사', cat2: '전문건설업' },
             civil: { cnstty: '토목', minPrice: '50', maxPrice: '1000', region: '전국', cat1: '공사', cat2: '종합건설업' },
@@ -1046,6 +1129,9 @@
                 opt.textContent = name;
                 cat2Select.appendChild(opt);
             });
+            
+            // ★ 대분류 변경 시 공고유형 자동 연동
+            document.getElementById('matchBidType').value = cat1;
             
             updateCategory3();
         }
@@ -1105,6 +1191,7 @@
             const keyword = document.getElementById('matchKeyword').value;
             const bidType = document.getElementById('matchBidType').value;
             const cnstty = document.getElementById('matchCnstty').value;
+            const cat1 = document.getElementById('matchCategory1').value;
             
             const minPrice = (parseInt(document.getElementById('matchMinPrice').value) || 0) * 10000000;
             const maxPrice = (parseInt(document.getElementById('matchMaxPrice').value) || 10000) * 10000000;
@@ -1117,24 +1204,82 @@
             document.getElementById('matchN2B').style.display = 'none';
 
             try {
-                const response = await fetch(`${API_BASE}/api/custom-match`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        work_types: [cnstty],
-                        min_price: minPrice,
-                        max_price: maxPrice,
-                        regions: regions,
-                        keyword: keyword,
-                        bid_type: bidType
-                    })
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    displayMatchResult(data);
+                // 용역/물품은 키워드 검색 방식 사용 (공종 매칭이 어려움)
+                if (cat1 === '용역' || cat1 === '물품') {
+                    // 소분류 or 추가키워드를 검색어로 사용
+                    const searchKeyword = keyword || cnstty || '';
+                    
+                    const response = await fetch(`${API_BASE}/api/bid-search?keyword=${encodeURIComponent(searchKeyword)}&bid_type=${encodeURIComponent(bidType)}&count=50`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.bids) {
+                        // 프론트엔드에서 금액/지역 필터링
+                        const filtered = data.bids.filter(bid => {
+                            const price = parseInt(bid.base_price || bid.estimated_price || 0);
+                            
+                            // 금액 필터
+                            if (price > 0 && (price < minPrice || price > maxPrice)) return false;
+                            
+                            // 지역 필터
+                            if (region !== '전국') {
+                                const regionMap = {
+                                    '수도권': ['서울', '경기', '인천'],
+                                    '충청권': ['대전', '세종', '충북', '충남'],
+                                    '영남권': ['부산', '대구', '울산', '경북', '경남'],
+                                    '호남권': ['광주', '전북', '전남'],
+                                    '강원제주': ['강원', '제주']
+                                };
+                                const bidRegion = (bid.region || '') + (bid.agency || '');
+                                const targetRegions = regionMap[region] || [region];
+                                if (!targetRegions.some(r => bidRegion.includes(r))) return false;
+                            }
+                            
+                            return true;
+                        }).map(bid => {
+                            const price = parseInt(bid.base_price || bid.estimated_price || 0);
+                            bid.match_score = 50;
+                            bid.match_reasons = [];
+                            if (price > 0) bid.match_reasons.push(`금액 적합 (${price.toLocaleString()}원)`);
+                            if (region !== '전국') bid.match_reasons.push(`지역: ${region}`);
+                            if (searchKeyword) bid.match_reasons.push(`키워드: ${searchKeyword}`);
+                            return bid;
+                        });
+                        
+                        displayMatchResult({
+                            success: true,
+                            total_found: data.bids.length,
+                            matched_count: filtered.length,
+                            matched: filtered.slice(0, 20),
+                            n2b: {
+                                not: `모든 ${bidType} 공고가 조건에 맞는 게 아닙니다`,
+                                but: `${filtered.length}건이 매칭되었습니다`,
+                                because: `금액(${minPrice.toLocaleString()}~${maxPrice.toLocaleString()}원), 유형(${bidType}), 지역(${region}) 조건 충족`
+                            }
+                        });
+                    } else {
+                        alert('검색 결과가 없습니다');
+                    }
                 } else {
-                    alert('매칭 실패: ' + (data.detail || '오류 발생'));
+                    // 공사는 기존 custom-match API 사용
+                    const response = await fetch(`${API_BASE}/api/custom-match`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            work_types: [cnstty],
+                            min_price: minPrice,
+                            max_price: maxPrice,
+                            regions: regions,
+                            keyword: keyword,
+                            bid_type: bidType
+                        })
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        displayMatchResult(data);
+                    } else {
+                        alert('매칭 실패: ' + (data.detail || '오류 발생'));
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -1257,6 +1402,26 @@
             btn.classList.add('selected');
             selectedWorkType = type;
             
+            // 슬라이더 라벨 업데이트 (용역/물품은 다른 용어)
+            const labels = getCostLabels(type);
+            const sliderLabels = document.querySelectorAll('.slider-group label span:first-child');
+            if (sliderLabels.length >= 3) {
+                const cat = getWorkCategory(type);
+                if (cat === '용역') {
+                    sliderLabels[0].textContent = `${labels['재료비']} 절감률 (기술료 절감 등)`;
+                    sliderLabels[1].textContent = `${labels['노무비']} 절감률 (자체 인력 등)`;
+                    sliderLabels[2].textContent = `${labels['경비']} 절감률 (사무실 절감 등)`;
+                } else if (cat === '물품') {
+                    sliderLabels[0].textContent = `${labels['재료비']} 절감률 (직거래, 대량구매 등)`;
+                    sliderLabels[1].textContent = `${labels['노무비']} 절감률 (자체 설치 등)`;
+                    sliderLabels[2].textContent = `${labels['경비']} 절감률 (직배송 등)`;
+                } else {
+                    sliderLabels[0].textContent = '재료비 절감률 (단골 거래처, 직거래 등)';
+                    sliderLabels[1].textContent = '노무비 절감률 (직영 인력, 숙련공 등)';
+                    sliderLabels[2].textContent = '경비 절감률 (자가 장비, 현장 인접 등)';
+                }
+            }
+            
             // 낙찰률 자동 조회
             currentBidRateData = null;
             fetchBidRate(type);
@@ -1372,18 +1537,7 @@
         }
 
         function calculateCostOffline(basePrice, workType, matDisc, labDisc, eqDisc, bidRate = 85) {
-            const ratios = {
-                '도로': { '재료비': 55, '노무비': 25, '경비': 20 },
-                '토목': { '재료비': 40, '노무비': 35, '경비': 25 },
-                '건축': { '재료비': 50, '노무비': 30, '경비': 20 },
-                '설비': { '재료비': 60, '노무비': 25, '경비': 15 },
-                '전기': { '재료비': 55, '노무비': 30, '경비': 15 },
-                '조경': { '재료비': 45, '노무비': 35, '경비': 20 },
-                '상하수도': { '재료비': 55, '노무비': 25, '경비': 20 },
-                '기타': { '재료비': 50, '노무비': 30, '경비': 20 }
-            };
-
-            const ratio = ratios[workType] || ratios['기타'];
+            const ratio = getCostRatio(workType);
             
             const competitivePrice = Math.floor(basePrice * bidRate / 100);
             const bubble = basePrice - competitivePrice;
@@ -1448,17 +1602,9 @@
             const n2bColor = data['N2B'] === 'Because' ? 'var(--because-color)' : 
                             data['N2B'] === 'But' ? 'var(--but-color)' : 'var(--not-color)';
             
-            const ratios = {
-                '도로': { '재료비': 55, '노무비': 25, '경비': 20 },
-                '토목': { '재료비': 40, '노무비': 35, '경비': 25 },
-                '건축': { '재료비': 50, '노무비': 30, '경비': 20 },
-                '설비': { '재료비': 60, '노무비': 25, '경비': 15 },
-                '전기': { '재료비': 55, '노무비': 30, '경비': 15 },
-                '조경': { '재료비': 45, '노무비': 35, '경비': 20 },
-                '상하수도': { '재료비': 55, '노무비': 25, '경비': 20 },
-                '기타': { '재료비': 50, '노무비': 30, '경비': 20 }
-            };
-            const ratio = ratios[data['공종']] || ratios['기타'];
+            const ratio = getCostRatio(data['공종']);
+            const labels = getCostLabels(data['공종']);
+            const category = getWorkCategory(data['공종']);
             
             // 낙찰률 출처 정보
             const sourceInfo = currentBidRateData && currentBidRateData.sample_count > 0
@@ -1522,7 +1668,7 @@
                     </tr>
                 </table>
 
-                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">📋 상세 원가 (직접공사비 기준)</h4>
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">📋 상세 원가 (${category === '공사' ? '직접공사비' : category === '용역' ? '직접비' : '직접비'} 기준)</h4>
                 <table class="cost-table">
                     <tr>
                         <th>구분</th>
@@ -1531,19 +1677,19 @@
                         <th>절감액</th>
                     </tr>
                     <tr>
-                        <td>재료비 (${ratio['재료비']}%)</td>
+                        <td>${labels['재료비']} (${ratio['재료비']}%)</td>
                         <td>${data['표준원가']['재료비'].toLocaleString()}원</td>
                         <td>${data['내원가']['재료비'].toLocaleString()}원</td>
                         <td class="saving">−${(data['표준원가']['재료비'] - data['내원가']['재료비']).toLocaleString()}원</td>
                     </tr>
                     <tr>
-                        <td>노무비 (${ratio['노무비']}%)</td>
+                        <td>${labels['노무비']} (${ratio['노무비']}%)</td>
                         <td>${data['표준원가']['노무비'].toLocaleString()}원</td>
                         <td>${data['내원가']['노무비'].toLocaleString()}원</td>
                         <td class="saving">−${(data['표준원가']['노무비'] - data['내원가']['노무비']).toLocaleString()}원</td>
                     </tr>
                     <tr>
-                        <td>경비 (${ratio['경비']}%)</td>
+                        <td>${labels['경비']} (${ratio['경비']}%)</td>
                         <td>${data['표준원가']['경비'].toLocaleString()}원</td>
                         <td>${data['내원가']['경비'].toLocaleString()}원</td>
                         <td class="saving">−${(data['표준원가']['경비'] - data['내원가']['경비']).toLocaleString()}원</td>
